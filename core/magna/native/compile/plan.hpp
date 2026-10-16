@@ -1,6 +1,7 @@
 // Compiled assignment data and original-location ordered Pauli transport.
 #pragma once
 #include "../foundation/stabilizer.hpp"
+#include <optional>
 namespace magic_native {
 struct Frame {
     Bits x, z;

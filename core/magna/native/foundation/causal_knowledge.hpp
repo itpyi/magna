@@ -3,6 +3,7 @@
 #pragma once
 #include "bits.hpp"
 #include <map>
+#include <limits>
 #include <optional>
 #include <string>
 namespace magic_native {

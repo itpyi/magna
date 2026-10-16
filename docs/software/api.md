@@ -24,7 +24,7 @@ result = run(compiled, shots=1000, seed=7)
 | `parse_circuit(text, *, controllers=None, source="<string>", max_instructions=1000000, max_qubits=65536)` | A `CircuitFile` from text; a file that exceeds either budget raises `ResourceLimit` |
 | `load_controllers(path)` | A `ControllerRegistry` from a bindings JSON |
 | `compile_circuit(circuit, *, task=None, options=None, controllers=None, ideal_state=None, recovery=None, sampling=None)` | A `CompiledCircuit` with all queries prepared |
-| `run(circuit, *, shots=1, seed=0, task=None, options=None, controllers=None, ideal_state=None, recovery=None, sampling=None, progress_every=None)` | A [result](results.md) dictionary; `circuit` may also be a `CompiledCircuit` |
+| `run(circuit, *, shots=1, seed=0, task=None, options=None, controllers=None, ideal_state=None, recovery=None, sampling=None, progress_every=None, workers=1)` | A [result](results.md) dictionary; `circuit` may also be a `CompiledCircuit` |
 | `enumerate_errors(circuit, *, max_weight, task=None, ideal_state=None, recovery=None, controllers=None, options=None, max_patterns=100000, max_branches=4096, max_record_bits=64, include_patterns=False)` | An [enumeration result](enumeration.md) |
 | `compare_samplers(circuit, *, pilot_shots, seed=0, task=None, options=None, controllers=None, ideal_state=None, recovery=None, sampling=None)` | A pilot report with `gamma` and `recommended_sampler` |
 
@@ -36,6 +36,8 @@ Argument conventions:
 - `ideal_state` and `recovery` are paths, `CircuitFile` objects, or (for `ideal_state`) an object `{"circuit": ..., "outputs": [...], "postselection": {...}}`. Give each in the task or as an argument, not both. Paths passed as arguments are relative to the working directory.
 - `sampling` is a dictionary or JSON path: `{"method": "physical"}` or `{"method": "importance", "proposal_scale": "10"}`.
 - `options` is a dictionary of [resource options](options.md), including `history_sampler`.
+- `workers` is a positive integer selecting native sampling threads (default 1). See
+  [parallel sampling](sampling.md#parallel-sampling) for reproducibility and resource costs.
 
 ### CompiledCircuit
 
@@ -50,7 +52,8 @@ Preparation happens in `compile_circuit`. It draws no randomness and calls no de
 A [resource option](options.md) that is too small for the task raises `ResourceLimit`; see [errors](#errors).
 Repeated `run(compiled, ...)` and `sample` calls reuse the prepared decompositions.
 A compiled circuit serves one thread at a time: a call from a second thread while another
-is running raises `RuntimeError`. To sample in parallel, compile one circuit per thread.
+is running raises `RuntimeError`. Use `run(compiled, workers=4, shots=10000)` to let
+the runtime manage parallel sampling with independent worker state.
 
 ### CircuitFile and ControllerRegistry
 

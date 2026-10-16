@@ -29,6 +29,8 @@ infidelity of the two accepted output states against two ideal T states.
 Every directory in `examples/` is a complete task (circuit, target, configuration, decoder code)
 from the accompanying paper that `scripts/run_task.py` runs through the public interface;
 copy a directory and the runner next to an installed simulator to run it anywhere.
+Add `--workers 4` to either run command, or pass `workers=4` to Python's `run`,
+to sample on four native threads; see [parallel sampling](docs/software/sampling.md#parallel-sampling).
 The TQD tasks call their authors' decoder, which is not distributed here;
 `python scripts/fetch_author_decoder.py` downloads it at the pinned commit and checks its hashes.
 
@@ -56,6 +58,9 @@ The TQD tasks call their authors' decoder, which is not distributed here;
 
 The package source is in `core/magna` (Python interface plus the C++ kernel in `native/`),
 tests in `tests/core`, tutorial fixtures in `tests/fixtures`.
+
+The [parallel sampling benchmark](docs/development/parallel-sampling-benchmark.md)
+records reproducible measurements through the public task runner.
 
 ## License
 

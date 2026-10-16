@@ -10,17 +10,17 @@ struct FileBatch {
     HistoryEfficiency efficiency;
     std::vector<std::vector<int>> records;
     size_t count() const { return values.count; }
-    void add(const HistoryResult& result) {
-        auto contribution = result.contribution();
+    void add(const HistoryContribution& contribution, const std::vector<int>& samples) {
         std::vector<std::optional<ScientificValue>> row;
         for(const auto& value : contribution.values) row.push_back(value.scientific);
         // Every check precedes the first update, so a failed draw leaves the batch consistent.
         WeightAccumulator::validate(contribution.weight);
-        if(!result.samples.empty()) records.reserve(records.size() + 1);
+        if(!samples.empty()) records.reserve(records.size() + 1);
         values.add(row);
         weights.add(contribution.weight);
         efficiency.add(*row[0], row[1], contribution.weight, contribution.noise_weight);
-        if(!result.samples.empty()) records.push_back(result.samples);
+        if(!samples.empty()) records.push_back(samples);
     }
+    void add(const HistoryResult& result) { add(result.contribution(), result.samples); }
 };
 } // namespace magic_native

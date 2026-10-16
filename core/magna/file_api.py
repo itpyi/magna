@@ -396,17 +396,20 @@ _RUN_COUNTERS = ('queries', 'compilations', 'kernel_seconds', 'compile_seconds',
 
 
 def run(circuit, *, shots=1, seed=0, task=None, options=None, controllers=None,
-        ideal_state=None, recovery=None, sampling=None, progress_every=None):
+        ideal_state=None, recovery=None, sampling=None, progress_every=None, workers=1):
     """Draw shots histories and return the aggregate result dictionary.
 
     circuit is a path, a loaded CircuitFile or a CompiledCircuit.
     A compiled circuit already fixes its task, options, controllers, targets
     and sampling, so those arguments must then be omitted; repeated calls
-    reuse its preparation.
+    reuse its preparation. workers selects the number of native sampling
+    threads; one preserves the sequential random stream.
     """
     from . import _native
     if type(shots) is not int or shots < 1: raise ValueError(f'shots must be a positive integer, not {shots!r}')
     if type(seed) is not int: raise ValueError(f'seed must be an integer, not {seed!r}')
+    if type(workers) is not int or workers < 1:
+        raise ValueError(f'workers must be a positive integer, not {workers!r}')
     if progress_every is not None and (type(progress_every) is not int or progress_every < 1):
         raise ValueError(f'progress_every must be a positive integer, not {progress_every!r}')
     started = monotonic(); failures = []; preparation_failed = False; baseline = None
@@ -433,13 +436,16 @@ def run(circuit, *, shots=1, seed=0, task=None, options=None, controllers=None,
     compiled._configure_execution()
     try:
         while not preparation_failed and completed < shots:
-            count = min(progress_every or 4096, shots-completed)
+            count = min(4096, shots-completed)
+            if progress_every is not None:
+                count = min(count, progress_every-completed % progress_every)
             try:
-                completed = _native.advance_file_batch(compiled._execution.handle, batch, rng, count)
+                completed = _native.advance_file_batch(compiled._execution.handle, batch, rng, count,
+                                                      min(workers, 4096))
             except (RuntimeError, ValueError, ArithmeticError, MemoryError) as exc:
                 completed = _native.file_batch_efficiency(batch)['completed']
                 failures.append(dict(phase='sampling', shot=completed, type=type(exc).__name__, message=str(exc))); break
-            if progress_every is not None:
+            if progress_every is not None and (completed % progress_every == 0 or completed == shots):
                 sampling_seconds += monotonic()-sampling_started
                 _print_sampling_progress(completed, shots, compiled.options['history_sampler'],
                                          _native.file_batch_efficiency(batch))
@@ -455,7 +461,8 @@ def run(circuit, *, shots=1, seed=0, task=None, options=None, controllers=None,
     result = dict(schema_version=SCHEMA_VERSION, software_version=PACKAGE_VERSION,
         status='failed' if failures else 'complete', requested=shots, completed=completed,
         failed=0 if preparation_failed else len(failures),
-        not_attempted=shots if preparation_failed else shots-completed-len(failures), seed=seed, route=compiled.route,
+        not_attempted=shots if preparation_failed else shots-completed-len(failures), seed=seed,
+        workers=workers, route=compiled.route,
         method='global_boundary_with_noise_importance_sampling' if compiled.noise_schedule.sampling['method'] == 'importance'
                else 'global_boundary_with_independent_original_noise',
         sampling=compiled.noise_schedule.to_dict(history_sampler=compiled.options['history_sampler']),
@@ -617,6 +624,8 @@ def _parser():
     run_command = command('run', 'Sample the task and report acceptance, error and conditional error.')
     run_command.add_argument('--shots', type=int, default=1, metavar='N', help='number of draws (default 1)')
     run_command.add_argument('--seed', type=int, default=0, metavar='N', help='random seed (default 0)')
+    run_command.add_argument('--workers', type=int, default=1, metavar='N',
+                             help='native sampling threads (positive integer, default 1)')
     run_command.add_argument('--progress-every', type=int, metavar='N',
                              help='print progress and kappa to standard error every N draws')
     enumerate_command = command('enumerate', 'Sum every fault pattern up to a maximum weight exactly.',
@@ -651,7 +660,7 @@ def main(argv=None):
             lines = _summarize_enumeration(result)
         elif args.command == 'run':
             result = run(circuit, shots=args.shots, seed=args.seed, options=options, sampling=sampling,
-                         progress_every=args.progress_every, **targets)
+                         progress_every=args.progress_every, workers=args.workers, **targets)
             lines = _summarize_run(result)
         elif args.command == 'compare-samplers':
             from .sampler_decision import compare_samplers

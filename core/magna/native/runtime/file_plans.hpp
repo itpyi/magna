@@ -9,6 +9,7 @@
 #include "file_statistics.hpp"
 #include "../foundation/bounded_cache.hpp"
 #include <chrono>
+#include <atomic>
 #include <map>
 #include <memory>
 #include <optional>
@@ -21,6 +22,9 @@ struct RuntimeLimits : BoundaryLimits {
     std::optional<double> seconds;
 };
 struct RunContext {
+    struct SharedBudget {
+        std::atomic<size_t> queries{0};
+    };
     std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
     size_t queries = 0, query_base = 0, compilations = 0, shared_path_gates = 0;
     double compile_seconds = 0, kernel_seconds = 0, decoder_seconds = 0;
@@ -31,6 +35,8 @@ struct RunContext {
     std::map<std::string, size_t> reference_network_evaluations;
     size_t reference_network_preparations = 0, reference_network_resource_constructions = 0,
            reference_network_coordinate_constructions = 0;
+    // Installed only while worker-owned runtimes execute a parallel batch.
+    std::shared_ptr<SharedBudget> shared_budget;
     // Budgets count from the start of the current run; counters stay cumulative for reporting.
     void begin_run() {
         started = std::chrono::steady_clock::now();
@@ -41,8 +47,50 @@ struct RunContext {
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count() >= *limits.seconds)
             throw ResourceLimitError(
                     "run reached its time budget between quantum queries", "max_seconds", *limits.seconds);
-        if(limits.queries && queries - query_base >= *limits.queries)
-            throw ResourceLimitError("run reached its quantum-query budget", "max_queries", double(*limits.queries));
+        if(limits.queries) {
+            auto used = shared_budget ? shared_budget->queries.load(std::memory_order_relaxed) : queries - query_base;
+            if(used >= *limits.queries)
+                throw ResourceLimitError("run reached its quantum-query budget", "max_queries", double(*limits.queries));
+        }
+    }
+    void start_query(const RuntimeLimits& limits) {
+        check(limits);
+        if(shared_budget && limits.queries) {
+            auto used = shared_budget->queries.load(std::memory_order_relaxed);
+            do {
+                if(limits.queries && used >= *limits.queries)
+                    throw ResourceLimitError(
+                            "run reached its quantum-query budget", "max_queries", double(*limits.queries));
+            } while(!shared_budget->queries.compare_exchange_weak(used, used + 1, std::memory_order_relaxed));
+        }
+        queries++;
+    }
+    // Include work performed since a worker's last checkpoint, including failed draws.
+    void include(const RunContext& current, const RunContext& before) {
+        queries += current.queries - before.queries;
+        compilations += current.compilations - before.compilations;
+        shared_path_gates += current.shared_path_gates - before.shared_path_gates;
+        compile_seconds += current.compile_seconds - before.compile_seconds;
+        kernel_seconds += current.kernel_seconds - before.kernel_seconds;
+        decoder_seconds += current.decoder_seconds - before.decoder_seconds;
+        support_updates += current.support_updates - before.support_updates;
+        support_geometry_updates += current.support_geometry_updates - before.support_geometry_updates;
+        support_geometry_reuses += current.support_geometry_reuses - before.support_geometry_reuses;
+        support_term_visits += current.support_term_visits - before.support_term_visits;
+        support_tensor_expansions += current.support_tensor_expansions - before.support_tensor_expansions;
+        support_seconds += current.support_seconds - before.support_seconds;
+        completed_history_reuses += current.completed_history_reuses - before.completed_history_reuses;
+        target_frame_reuses += current.target_frame_reuses - before.target_frame_reuses;
+        reference_network_preparations += current.reference_network_preparations - before.reference_network_preparations;
+        reference_network_resource_constructions +=
+                current.reference_network_resource_constructions - before.reference_network_resource_constructions;
+        reference_network_coordinate_constructions +=
+                current.reference_network_coordinate_constructions - before.reference_network_coordinate_constructions;
+        for(const auto& [purpose, count] : current.reference_network_evaluations) {
+            auto found = before.reference_network_evaluations.find(purpose);
+            reference_network_evaluations[purpose] +=
+                    count - (found == before.reference_network_evaluations.end() ? 0 : found->second);
+        }
     }
 };
 struct FileBoundary {

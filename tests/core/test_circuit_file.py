@@ -17,7 +17,8 @@ class CircuitFileTests(unittest.TestCase):
         for literal in ('1e-200', '.125', '+0.1250', '1_000/100_000',
                         '123456789012345678901234567890/123456789012345678901234567891'):
             circuit = parse_circuit(f'X_ERROR({literal}) 0')
-            self.assertEqual(circuit.instructions[0].args, (Fraction(literal),))
+            # Fraction only accepts underscores from Python 3.11 onward.
+            self.assertEqual(circuit.instructions[0].args, (Fraction(literal.replace('_', '')),))
         circuit = parse_circuit('M 0\nCONTROL[NOT] rec[-1] -> ctrl[0]')
         rewritten = replace(circuit, instructions=circuit.instructions[:1])
         with self.assertRaisesRegex(ValueError, 'no parsed form'):

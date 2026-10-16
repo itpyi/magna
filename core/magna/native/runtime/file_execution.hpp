@@ -57,6 +57,7 @@ struct CompiledExperiment {
     // (a decoder calling back into the same task) is allowed. Language bindings
     // hold an ExclusiveUse around every entry point that reads or updates it.
     std::atomic<std::thread::id> user{};
+    std::atomic<bool> parallel_active{false};
     size_t user_depth = 0;
     struct ExclusiveUse {
         CompiledExperiment& run;
@@ -64,6 +65,8 @@ struct CompiledExperiment {
             auto self = std::this_thread::get_id();
             auto none = std::thread::id();
             if(run.user.load() == self) {
+                if(run.parallel_active.load())
+                    throw std::runtime_error("this compiled circuit is in use by parallel workers");
                 run.user_depth++;
                 return;
             }
@@ -382,8 +385,7 @@ public:
             const ReferenceRows& keep, const ReferenceRows& events, const std::vector<int>& outcomes,
             const Bits& sector = {}) {
         auto reference_network = prepare_reference_network(engine, purpose);
-        context.check(limits);
-        context.queries++;
+        context.start_query(limits);
         auto tick = std::chrono::steady_clock::now();
         Workspace ws;
         auto result = reference_network->query_coordinates(*engine.plan, frame, keep, events, outcomes, ws, sector);
@@ -402,8 +404,7 @@ public:
     }
     Scalar completed_total(
             FileBoundary& engine, const std::string& purpose, const Frame& frame, SamplingNetworkSession& session) {
-        context.check(limits);
-        context.queries++;
+        context.start_query(limits);
         auto tick = std::chrono::steady_clock::now();
         Workspace ws;
         const auto& parent = *engine.reference_networks.at(purpose);
@@ -444,8 +445,7 @@ public:
     BoundaryResult query(const FileBoundary& engine, const Assignment& assignment, const NamedRows& keep,
             const NamedRows& events, const std::vector<int>& outcomes, const Bits& x = {}, const Bits& z = {},
             const Frame* frame = nullptr) {
-        context.check(limits);
-        context.queries++;
+        context.start_query(limits);
         auto tick = std::chrono::steady_clock::now();
         Workspace ws;
         auto result = engine.plan->query(
@@ -493,8 +493,7 @@ public:
                 local.emplace(*history, *engine->plan, sector);
                 session = &*local;
             }
-            context.check(limits);
-            context.queries++;
+            context.start_query(limits);
             auto tick = std::chrono::steady_clock::now();
             result.history =
                     local ? session->mass_coordinates(frame, *sampling_rows, outcomes) : session->mass_committed(frame);
@@ -644,8 +643,7 @@ private:
                                             : sample_boundary(uniform, request.pending.size(), hooks.seed());
                     }
                 } else {
-                    run.context.check(run.limits);
-                    run.context.queries++;
+                    run.context.start_query(run.limits);
                     auto tick = std::chrono::steady_clock::now();
                     auto marginal = session->query_committed(frame, rows);
                     run.context.reference_network_evaluations["sampling"]++;

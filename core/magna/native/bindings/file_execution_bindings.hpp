@@ -1,6 +1,29 @@
 // Only explicit language callbacks and value adapters live in this layer.
+struct CallbackGIL {
+    PyGILState_STATE state = PyGILState_Ensure();
+    ~CallbackGIL() { PyGILState_Release(state); }
+};
+// A Python exception belongs to its thread state. Fetch it before releasing a
+// worker's GIL and restore it on the calling thread after every worker has joined.
+struct PythonCallbackError : std::exception {
+    struct Value {
+        PyObject *type = nullptr, *value = nullptr, *traceback = nullptr;
+        Value() { PyErr_Fetch(&type, &value, &traceback); }
+        ~Value() {
+            CallbackGIL gil;
+            Py_XDECREF(type);
+            Py_XDECREF(value);
+            Py_XDECREF(traceback);
+        }
+    };
+    std::shared_ptr<Value> captured = std::make_shared<Value>();
+    void restore() const {
+        PyErr_Restore(Py_XNewRef(captured->type), Py_XNewRef(captured->value), Py_XNewRef(captured->traceback));
+    }
+};
 struct FileExecutionBinding {
     std::shared_ptr<CompiledExperiment> run;
+    std::vector<std::unique_ptr<CompiledExperiment>> workers;
     PyObject* callbacks = nullptr;
     ~FileExecutionBinding() { Py_XDECREF(callbacks); }
 };
@@ -11,6 +34,9 @@ void execution_destructor(PyObject* cap) { delete execution_handle(cap); }
 PyObject* execution_error() {
     try {
         throw;
+    } catch(const PythonCallbackError& e) {
+        e.restore();
+        return nullptr;
     } catch(const ResourceLimitError&) { return error(); } catch(...) {
         if(PyErr_Occurred()) return nullptr;
         return error();
@@ -89,10 +115,15 @@ PyObject* file_execution_state(PyObject*, PyObject* args) {
         CompiledExperiment::ExclusiveUse use(*owner->run);
         auto& run = *owner->run;
         const auto& c = run.context;
+        size_t plans = run.plans.size(), structures = run.plans.structure_size();
+        for(const auto& worker : owner->workers) {
+            plans += worker->plans.size();
+            structures += worker->plans.structure_size();
+        }
         Object out(Py_BuildValue("{s:n,s:n,s:d,s:d,s:d,s:n,s:n}", "queries", Py_ssize_t(c.queries), "compilations",
                 Py_ssize_t(c.compilations), "compile_seconds", c.compile_seconds, "kernel_seconds", c.kernel_seconds,
-                "decoder_seconds", c.decoder_seconds, "plans", Py_ssize_t(run.plans.size()), "structures",
-                Py_ssize_t(run.plans.structure_size())));
+                "decoder_seconds", c.decoder_seconds, "plans", Py_ssize_t(plans), "structures",
+                Py_ssize_t(structures)));
         Object resources(PyDict_New());
         phase_set(out.p, "route", PyUnicode_FromString(run.nonlinear() ? "nonlinear" : "linear"));
         phase_set(out.p, "conditional_noise", PyBool_FromLong(!run.source.guarded_ids.empty()));
@@ -143,6 +174,15 @@ PyObject* file_execution_state(PyObject*, PyObject* args) {
         phase_set(out.p, "target_frame_reuses", PyLong_FromSize_t(run.context.target_frame_reuses));
         if(details) {
             auto payload = run.payload_report();
+            for(const auto& worker : owner->workers) {
+                auto extra = worker->payload_report();
+                payload.persistent_networks += extra.persistent_networks;
+                payload.networks += extra.networks;
+                payload.proposal += extra.proposal;
+                payload.protocol_transport += extra.protocol_transport;
+                payload.branch_transport += extra.branch_transport;
+                payload.branch_locations += extra.branch_locations;
+            }
             phase_set(out.p, "persistent_networks", PyLong_FromSize_t(payload.persistent_networks));
             phase_set(out.p, "protocol_transport_arithmetic_payload_bytes",
                     PyLong_FromSize_t(payload.protocol_transport));
@@ -209,6 +249,7 @@ PyObject* configure_file_execution(PyObject*, PyObject* args) {
         if(!owner) return nullptr;
         auto limits = read_runtime_limits(options);
         CompiledExperiment::ExclusiveUse use(*owner->run);
+        for(auto& worker : owner->workers) worker->configure(limits);
         owner->run->configure(std::move(limits));
         Py_RETURN_NONE;
     } catch(...) { return execution_error(); }
@@ -234,10 +275,6 @@ ActualNoise read_actual_noise(PyObject* raw) {
     noise.weight = {big(weight[0]), big(weight[1])};
     return noise;
 }
-struct CallbackGIL {
-    PyGILState_STATE state = PyGILState_Ensure();
-    ~CallbackGIL() { PyGILState_Release(state); }
-};
 // Lets Python signal handlers (Ctrl-C) run between draws, at most every 100 ms.
 struct SignalCheck {
     std::chrono::steady_clock::time_point next = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
@@ -260,11 +297,16 @@ ExecutionHooks execution_hooks(FileExecutionBinding& owner, PyObject* rng) {
     };
     hooks.controller = [&owner](const std::string& stage, size_t index, const std::vector<int>& bits, size_t count) {
         CallbackGIL gil;
-        auto* group = field(owner.callbacks, stage.c_str());
-        Seq callbacks(group);
-        Object inputs(output_int_tuple(bits)), width(PyLong_FromSize_t(count));
-        Object result(PyObject_CallFunctionObjArgs(callbacks[index], inputs.p, width.p, nullptr));
-        return intvec(result.p);
+        try {
+            auto* group = field(owner.callbacks, stage.c_str());
+            Seq callbacks(group);
+            Object inputs(output_int_tuple(bits)), width(PyLong_FromSize_t(count));
+            Object result(PyObject_CallFunctionObjArgs(callbacks[index], inputs.p, width.p, nullptr));
+            return intvec(result.p);
+        } catch(...) {
+            if(PyErr_Occurred()) throw PythonCallbackError();
+            throw;
+        }
     };
     return hooks;
 }
@@ -320,20 +362,25 @@ PyObject* make_file_batch(PyObject*, PyObject*) {
 }
 PyObject* advance_file_batch(PyObject*, PyObject* args) {
     try {
-        PyObject *cap, *raw_batch, *rng, *raw_count;
-        if(!PyArg_ParseTuple(args, "OOOO", &cap, &raw_batch, &rng, &raw_count)) return nullptr;
+        PyObject *cap, *raw_batch, *rng, *raw_count, *raw_workers = nullptr;
+        if(!PyArg_ParseTuple(args, "OOOO|O", &cap, &raw_batch, &rng, &raw_count, &raw_workers)) return nullptr;
         auto* owner = execution_handle(cap);
         auto* batch = file_batch_handle(raw_batch);
         if(!owner || !batch) return nullptr;
         auto count = natural(raw_count);
+        auto workers = raw_workers ? natural(raw_workers) : 1;
+        if(!workers) throw std::invalid_argument("workers must be a positive integer");
         auto hooks = execution_hooks(*owner, rng);
         CompiledExperiment::ExclusiveUse use(*owner->run);
         native_work([&]() {
             SignalCheck signals;
-            for(size_t j = 0; j < count; j++) {
-                batch->add(owner->run->sample(hooks));
-                signals();
-            }
+            if(workers > 1)
+                advance_parallel_file_batch(*owner->run, owner->workers, *batch, count, workers, hooks, signals);
+            else
+                for(size_t j = 0; j < count; j++) {
+                    batch->add(owner->run->sample(hooks));
+                    signals();
+                }
             return 0;
         });
         return PyLong_FromSize_t(batch->count());

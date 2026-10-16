@@ -30,6 +30,7 @@ def main():
     source_hashes={str(s.relative_to(ROOT)):hashlib.sha256(s.read_bytes()).hexdigest() for s in sources}
     flags=['-std=c++17','-O3','-DNDEBUG','-Wall','-Wextra','-Wno-missing-field-initializers','-fPIC','-shared']
     if a.sanitize:flags=['-std=c++17','-O1','-g','-fsanitize=undefined','-fno-sanitize-recover=all','-fno-omit-frame-pointer','-fPIC','-shared']
+    flags+=['-pthread']
     if sys.platform=='darwin':flags+=['-undefined','dynamic_lookup']
     start=datetime.now().astimezone().isoformat()
     with tempfile.TemporaryDirectory(prefix='.native-build-',dir=a.output_dir) as temporary:
