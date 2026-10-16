@@ -163,12 +163,20 @@ option overrides it. Parallelism applies to physical and importance sampling and
 both history samplers. It does not change the exact per-draw calculation or the
 estimator. Results and requested records are accumulated in draw order.
 
-Each native worker owns its mutable execution state and prepared networks. The compiled
-circuit reuses its threads across sampling batches and repeated runs. It retains the
-largest worker pool and cache it has used, so its memory cost grows with that count.
+The compiled circuit prepares its execution plans and reference networks once and
+shares them across workers. Each native worker owns its changing draw state and
+resource counters; sampling a different history does not recompile the shared plans.
+Changing compilation limits or the history sampler rebuilds the preparation before
+workers use it again. Arbitrary observable queries share a synchronized plan cache.
+
+The compiled circuit reuses its threads across sampling batches and repeated runs.
+It retains the largest worker pool it has used. Thread stacks, worker state and small
+resource metadata copies still grow with that count, while the compiled networks,
+decomposition tables and transport data are shared. Workers keep local ownership
+counters for fixed reference resources to avoid contention during sampling.
 Threads wait without sampling between runs; reducing `workers` leaves extra threads
-idle. Releasing the compiled circuit shuts down its threads and releases its caches.
-Small runs may be slower because of worker preparation and scheduling.
+idle. Releasing the compiled circuit shuts down its threads and releases its plans.
+Small runs may be slower because of thread startup and scheduling.
 Start with a worker count no larger than the available CPU cores,
 then compare `timings.sampling_seconds` and `timings.total_seconds` on your task.
 
@@ -185,7 +193,7 @@ batch is active raises `RuntimeError`.
 Heavy Python decoders can limit the speedup of native sampling.
 
 `max_queries` is shared across the run, and `max_seconds` measures elapsed wall time.
-Other resource bounds apply to each worker's networks and caches. On failure, statistics
+Other resource bounds apply when preparing networks and evaluating queries. On failure, statistics
 retain the completed prefix in draw order. Workers may already have evaluated later
 draws; those results are discarded, and their work is included in resource counters.
 

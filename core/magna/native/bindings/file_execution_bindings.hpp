@@ -174,9 +174,11 @@ PyObject* file_execution_state(PyObject*, PyObject* args) {
         phase_set(out.p, "completed_history_reuses", PyLong_FromSize_t(run.context.completed_history_reuses));
         phase_set(out.p, "target_frame_reuses", PyLong_FromSize_t(run.context.target_frame_reuses));
         if(details) {
-            auto payload = run.payload_report();
+            // Count shared arithmetic owners once across all cached workers.
+            CompiledExperiment::PayloadAccounting counted;
+            auto payload = run.payload_report(counted);
             for(const auto& worker : owner->workers) {
-                auto extra = worker->payload_report();
+                auto extra = worker->payload_report(counted);
                 payload.persistent_networks += extra.persistent_networks;
                 payload.networks += extra.networks;
                 payload.proposal += extra.proposal;

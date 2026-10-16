@@ -1,5 +1,6 @@
 """Parallel sampling through the same public Python and command-line entry points."""
 from contextlib import redirect_stderr, redirect_stdout
+from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
 import json
 import math
@@ -12,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import threading
 import time
 import unittest
 from unittest.mock import patch
@@ -173,6 +175,144 @@ class ParallelSamplingTests(unittest.TestCase):
                 self.assertEqual(result['resources']['queries'], queries[workers])
             queries[workers] = result['resources']['queries']
 
+    def test_preparation_is_shared_when_the_worker_pool_grows(self):
+        circuit = parse_circuit('H 0\nT 0\nDEPOLARIZE1(1/7) 0\nMX(1/5) 0\nCX rec[-1] 1')
+        kwargs = dict(task={'outputs': [1], 'sample_records': [0]},
+                      ideal_state=parse_circuit('I 0'))
+        for method in ('affine_support', 'exact_marginal'):
+            with self.subTest(method=method):
+                options = {'history_sampler': method}
+                compiled = compile_circuit(circuit, options=options, **kwargs)
+                preparation = compiled.inspect()['compilation']
+                initial_compilations = compiled.compilations
+                self.assertGreater(initial_compilations, 0)
+                expected = run(circuit, shots=131, seed=671, workers=2, options=options, **kwargs)
+                self.assertEqual(expected['resources']['compilations'], initial_compilations)
+                for workers in (32, 2, 64, 3, 32):
+                    with self.subTest(workers=workers):
+                        actual = run(compiled, shots=131, seed=671, workers=workers)
+                        self.assert_same_draws(actual, expected)
+                        self.assertEqual(actual['resources']['compilations'], 0)
+                        self.assertEqual(compiled.compilations, initial_compilations)
+                        self.assertEqual(compiled.inspect()['compilation'], preparation)
+
+    def test_shared_plans_keep_guarded_recovery_and_moment_scratch_independent(self):
+        registry = ControllerRegistry()
+        registry.register('and', lambda bits, config: (bits[0] & bits[1],), version='1')
+        registry.register('echo', lambda bits, config: bits, version='1')
+        circuit = parse_circuit(
+            'H 0 1 2\nT 0 2\nH 0\nM(1/7) 0 1\n'
+            'DETECTOR rec[-2]\nDETECTOR rec[-1]\n'
+            'CONTROL[and] det[-2] det[-1] -> ctrl[0]\nCS ctrl[0] 2\n'
+            'CORRELATED_ERROR(1/5) ctrl[0] Y2 X1\n'
+            'ELSE_CORRELATED_ERROR(1/3) ctrl[0] Z2\n'
+            'Z_ERROR(1/9) 2\nM 1\nX_ERROR(1/3) rec[-1] 2', controllers=registry)
+        recovery = parse_circuit(
+            'H 1\nM 1\nDETECTOR rec[-1]\nCONTROL[echo] det[-1] -> ctrl[0]\n'
+            'CX ctrl[0] 0\nS 0', controllers=registry)
+        kwargs = dict(task={'outputs': [2], 'sample_records': [0, 1, 2],
+                            'observables': [[1, 0], [1, 1], [0, 1]]},
+                      recovery=recovery, ideal_state=parse_circuit('H 0\nT 0'))
+        for method in ('affine_support', 'exact_marginal'):
+            for sampling in (None, {'method': 'importance', 'proposal_scale': '2'}):
+                with self.subTest(method=method, sampling=sampling):
+                    options = {'history_sampler': method, 'max_plans': 1}
+                    compiled = compile_circuit(circuit, options=options, sampling=sampling, **kwargs)
+                    expected = run(circuit, shots=137, seed=931, workers=2,
+                                   options=options, sampling=sampling, **kwargs)
+                    self.assertEqual(expected['status'], 'complete', expected['failures'])
+                    self.assertEqual(len(expected['estimates']['moments']), 3)
+                    for workers in (64, 32, 2):
+                        actual = run(compiled, shots=137, seed=931, workers=workers)
+                        self.assert_same_draws(actual, expected)
+                        self.assertEqual(actual['resources']['compilations'], 0)
+                        self.assertEqual(len(actual['sampled_records']), 137)
+                        self.assertTrue(all(len(row) == 3 for row in actual['sampled_records']))
+
+    def test_shared_network_payload_is_not_counted_per_worker(self):
+        circuit = parse_circuit('H 0\nT 0\nDEPOLARIZE1(1/7) 0\nH 1\nM 1\nCX rec[-1] 0')
+        common = ('persistent_networks', 'protocol_transport_arithmetic_payload_bytes',
+                  'branch_transport_arithmetic_payload_bytes', 'branch_original_locations',
+                  'reference_network_preparations')
+        for sample_records in ([], [0]):
+            with self.subTest(sample_records=sample_records):
+                compiled = compile_circuit(circuit,
+                    task={'outputs': [0], 'sample_records': sample_records},
+                    ideal_state=parse_circuit('H 0\nT 0'))
+                # Sampling uses only run(); this existing diagnostic measures
+                # retained arithmetic owners after every worker is idle.
+                initial = compiled._execution.state()
+                self.assertGreater(initial['network_arithmetic_payload_bytes'], 0)
+                largest_payload = None
+                for workers in (2, 32, 64, 2):
+                    result = run(compiled, shots=131, seed=151, workers=workers)
+                    self.assertEqual(result['status'], 'complete', result['failures'])
+                    state = compiled._execution.state()
+                    for key in common:
+                        self.assertEqual(state[key], initial[key], (workers, key))
+                    payload = state['network_arithmetic_payload_bytes']
+                    if workers == 64:
+                        # Local resource metadata is allowed; duplicating a
+                        # whole plan per worker would require at least 64x.
+                        self.assertLess(payload, 32*initial['network_arithmetic_payload_bytes'])
+                        largest_payload = payload
+                    elif largest_payload is not None:
+                        self.assertEqual(payload, largest_payload)
+                    if not sample_records:
+                        # No per-worker completed-history cap rows in this case.
+                        self.assertEqual(state['proposal_arithmetic_payload_bytes'],
+                                         initial['proposal_arithmetic_payload_bytes'])
+
+    def test_failed_reconfiguration_releases_shared_plans_and_recovers(self):
+        circuit = parse_circuit('H 0\nT 0\nH 0\nT 0\nH 0\nDEPOLARIZE1(1/7) 0\nM 0')
+        kwargs = dict(task={'sample_records': [0]}, ideal_state=parse_circuit('I 0'))
+        compiled = compile_circuit(circuit, **kwargs)
+        expected = run(circuit, shots=67, seed=41, workers=2, **kwargs)
+        actual = run(compiled, shots=67, seed=41, workers=64)
+        self.assert_same_draws(actual, expected)
+        for option in ('max_terms', 'max_path_bits'):
+            with self.subTest(option=option):
+                compiled.options[option] = 0
+                failed = run(compiled, shots=67, seed=41, workers=32)
+                self.assertEqual((failed['status'], failed['completed']), ('failed', 0))
+                self.assertEqual(failed['failures'][0]['type'], 'ResourceLimit')
+                compiled.options.pop(option)
+                recovered = run(compiled, shots=67, seed=41, workers=64)
+                self.assert_same_draws(recovered, expected)
+                # Rebuilding a changed preparation compiles each stage once.
+                self.assertEqual(recovered['resources']['compilations'],
+                                 expected['resources']['compilations'])
+                self.assertEqual(run(compiled, shots=7, workers=32)['resources']['compilations'], 0)
+        for method in ('exact_marginal', 'affine_support'):
+            compiled.options['history_sampler'] = method
+            changed = run(compiled, shots=67, seed=41, workers=32)
+            fresh = run(circuit, shots=67, seed=41, workers=2,
+                        options={'history_sampler': method}, **kwargs)
+            self.assert_same_draws(changed, fresh)
+            self.assertEqual(changed['resources']['compilations'], fresh['resources']['compilations'])
+            self.assertEqual(run(compiled, shots=7, workers=64)['resources']['compilations'], 0)
+
+    def test_prepared_source_lifetime_and_independent_parallel_circuits(self):
+        text = 'H 0\nT 0\nZ_ERROR(1/7) 0\nMX(1/5) 0\nCX rec[-1] 1'
+        task = {'outputs': [1], 'sample_records': [0]}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'protocol.magna'
+            path.write_text(text)
+            circuits = [compile_circuit(path, task=task) for _ in range(2)]
+        # Preparation must own source data after the caller removes the file.
+        expected = [run(parse_circuit(text), task=task, shots=257, seed=seed, workers=2)
+                    for seed in (17, 29)]
+        barrier = threading.Barrier(2)
+        def sample(index):
+            barrier.wait(timeout=10)
+            return run(circuits[index], shots=257, seed=(17, 29)[index], workers=(32, 64)[index])
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            actual = list(pool.map(sample, range(2)))
+        for result, reference in zip(actual, expected):
+            self.assert_same_draws(result, reference)
+            self.assertEqual(result['resources']['compilations'], 0)
+            self.assertEqual(result['resources']['queries'], reference['resources']['queries'])
+
     def test_controller_failure_is_reported_and_compiled_circuit_remains_usable(self):
         fail = [True]
         registry = ControllerRegistry()
@@ -258,8 +398,8 @@ class ParallelSamplingTests(unittest.TestCase):
         code = f'import sys\nsys.path[:0] = {sys.path!r}\n' + textwrap.dedent('''\
             import os
             from magna import compile_circuit, parse_circuit, run
-            compiled = compile_circuit(parse_circuit('X_ERROR(1/5) 0\\nM 0'),
-                                       task={'sample_records': [0]})
+            compiled = compile_circuit(parse_circuit('H 0\\nT 0\\nZ_ERROR(1/5) 0\\nMX 0'),
+                                       task={'sample_records': [0]}, ideal_state=parse_circuit('H 0'))
             expected = run(compiled, shots=97, seed=52, workers=16)
             for reuse in (True, False):
                 pid = os.fork()
@@ -268,6 +408,7 @@ class ParallelSamplingTests(unittest.TestCase):
                         actual = run(compiled, shots=97, seed=52, workers=32)
                         assert actual['status'] == 'complete', actual['failures']
                         assert actual['sampled_records'] == expected['sampled_records']
+                        assert actual['estimates'] == expected['estimates']
                     # Normal exit also disposes pools inherited but never reused.
                     sys.exit(0)
                 _, status = os.waitpid(pid, 0)

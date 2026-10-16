@@ -266,6 +266,22 @@ public:
     PlanRepository(
             const FileSource& source, const RuntimeLimits& limits, const PhaseDatabase& database, RunContext& context)
         : source(source), limits(limits), database(database), context(context) {}
+    // Published file boundaries are complete before a worker can see them.
+    // Their reference maps and feedback frames are read-only during draws;
+    // BoundaryTracePlan owns synchronized caches for arbitrary manual queries.
+    // Only the worker's repository lookup state is copied here.
+    void share_prepared(const PlanRepository& parent) {
+        prepared = parent.prepared;
+        aliases = parent.aliases;
+        structures = parent.structures;
+    }
+    const FileBoundary* get_prepared(
+            std::string stage, std::shared_ptr<const FileBoundary>* pin = nullptr) const {
+        context.check(limits);
+        const auto& boundary = prepared.at(source.stage(std::move(stage)));
+        if(pin) *pin = boundary;
+        return boundary.get();
+    }
     std::shared_ptr<FileBoundary> get(std::string stage, CompilerPathPrefix* prefix = nullptr) {
         context.check(limits);
         stage = source.stage(stage);

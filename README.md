@@ -61,6 +61,8 @@ tests in `tests/core`, tutorial fixtures in `tests/fixtures`.
 
 The [parallel sampling benchmark](docs/development/parallel-sampling-benchmark.md)
 records reproducible measurements through the public task runner.
+The [shared-plan scaling follow-up](docs/development/shared-plan-sampling-benchmark.md)
+measures worker preparation, memory use, and 32/64-worker scaling at larger sample counts.
 
 ## License
 

@@ -284,7 +284,8 @@ struct CompiledNetwork {
     }
     BoundaryResult evaluate_fixed(const ResourceCertificate& certificate, const Frame& frame,
             const std::vector<int>& exponents, const std::vector<int>& outcomes, Workspace& ws,
-            const PhaseLimits& limits, const ReferenceTransform* common) const {
+            const PhaseLimits& limits, const ReferenceTransform* common,
+            const PhaseResource* local_resource = nullptr) const {
         BoundaryResult result;
         auto& tensor = result.tensor;
         auto& diagnostics = result.diagnostics;
@@ -306,7 +307,7 @@ struct CompiledNetwork {
             return result;
         }
         auto shift = event_support->factor.solve(rhs);
-        result.resource = certificate.reference;
+        result.resource = local_resource ? *local_resource : certificate.reference;
         auto& q = result.resource.quotient;
         for(size_t j = 0; j < tensor.n; j++)
             q.linear[j] = mod4(q.linear[j] + 2 * maps->event_polar[j].parity_and(shift));
@@ -343,10 +344,11 @@ struct CompiledNetwork {
     }
     BoundaryResult evaluate(const Frame& frame, const std::vector<int>& exponents, const std::vector<int>& outcomes,
             bool affine_only, Workspace& ws, const PhaseLimits& limits, const PhaseDatabase* database,
-            bool reference_only = false, const ReferenceTransform* common = nullptr) const {
+            bool reference_only = false, const ReferenceTransform* common = nullptr,
+            const PhaseResource* local_resource = nullptr) const {
         if(reference_only && !affine_only)
             if(auto certificate = fixed_certificate())
-                return evaluate_fixed(*certificate, frame, exponents, outcomes, ws, limits, common);
+                return evaluate_fixed(*certificate, frame, exponents, outcomes, ws, limits, common, local_resource);
 
         return expand_trace_query(reduce(frame, exponents, outcomes, ws, nullptr, reference_only, true, common),
                 affine_only, ws, limits, database, joint ? &*joint : nullptr, inherited ? &*inherited : nullptr,
@@ -409,10 +411,9 @@ struct NetworkPayload {
         for(const auto& step : c.steps) n += 17 + bits(step.support) + bits(step.neighbors) + bits(step.column);
         return n;
     }
-    size_t certificate(const ResourceCertificate& c) {
-        const auto& r = c.reference;
+    size_t resource(const PhaseResource& r) {
         const auto& q = r.quotient;
-        size_t n = 8 + phase(c.terms) + 4 * c.linear.size() + rows(c.upper) + rows(q.axes) + phase(q.core) +
+        size_t n = rows(q.axes) + phase(q.core) +
                 4 * q.linear.size() + rows(q.upper) + rows(q.lifts) + 4 * r.core_phase_mod8.size();
         if(!r.prepared_entries || shared.insert(r.prepared_entries.get()).second)
             for(const auto& term : resource_entries(r)) {
@@ -430,6 +431,9 @@ struct NetworkPayload {
             }
         }
         return n + contraction(r.contraction);
+    }
+    size_t certificate(const ResourceCertificate& c) {
+        return 8 + phase(c.terms) + 4 * c.linear.size() + rows(c.upper) + resource(c.reference);
     }
     size_t network(const CompiledNetwork& n) {
         if(!shared.insert(&n).second) return 0;

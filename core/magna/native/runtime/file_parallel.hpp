@@ -1,5 +1,5 @@
 // Parallel execution behind the ordinary batch interface. Every runtime owns its
-// mutable plans; contributions are consumed in draw order by the existing statistics.
+// mutable draw state and shares prepared plans; contributions are consumed in draw order.
 #pragma once
 #include "file_batch.hpp"
 #include <condition_variable>
@@ -144,11 +144,18 @@ inline void advance_parallel_file_batch(CompiledExperiment& main,
     constexpr size_t window_size = 4096;
     while(count) {
         size_t size = std::min(count, window_size), workers = std::min(size, requested_workers);
+        if(!main.complete) main.prepare();
         while(cached.size() + 1 < workers)
-            cached.push_back(std::make_unique<CompiledExperiment>(
-                    main.source, main.task, main.noise_owner, main.limits, main.database));
+            cached.push_back(std::make_unique<CompiledExperiment>(main));
         std::vector<CompiledExperiment*> runs{&main};
-        for(size_t j = 1; j < workers; j++) runs.push_back(cached[j - 1].get());
+        for(size_t j = 1; j < workers; j++) {
+            // Configuration changes invalidate every runtime before the main
+            // plan is rebuilt. Reuse that new owner, including for idle workers
+            // which return after a later increase in the requested count.
+            cached[j - 1]->share_prepared(main);
+            runs.push_back(cached[j - 1].get());
+        }
+        for(auto* run : runs) run->prepare_parallel_resources();
         auto budget = std::make_shared<RunContext::SharedBudget>();
         budget->queries = main.context.queries - main.context.query_base;
         std::vector<RunContext> before;

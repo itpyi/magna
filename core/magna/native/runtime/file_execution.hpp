@@ -7,6 +7,7 @@
 #include <atomic>
 #include <functional>
 #include <thread>
+#include <type_traits>
 namespace magic_native {
 struct HistoryTask {
     QueryTask boundaries;
@@ -94,13 +95,18 @@ struct CompiledExperiment {
     FileQueryFamily family;
     NamedRows sector_rows;
     Ket sector_support;
-    std::unique_ptr<SamplingNetworkPlan> history;
+    std::shared_ptr<const SamplingNetworkPlan> history;
     bool proposal = false;
     // Terminal cap rows in the sampling parent's certified label basis.
     std::map<std::string, std::vector<Bits>> completed_caps;
     Scalar target_normalization{1};
     bool target_normalization_ready = false;
     std::map<std::string, std::vector<std::pair<std::string, std::shared_ptr<const CompiledNetwork>>>> resources;
+    // Only the fixed reference certificates appear here, never arbitrary
+    // manual queries. The large tables remain shared; their ownership counters
+    // are local to a runtime so per-draw copies do not contend across workers.
+    std::map<const ResourceCertificate*, PhaseResource> parallel_resources;
+    bool parallel_resources_ready = false;
     bool complete = false;
     bool nonlinear() const {
         return !source.controls.callbacks.empty() ||
@@ -111,16 +117,22 @@ struct CompiledExperiment {
         size_t persistent_networks = 0, networks = 0, proposal = 0, protocol_transport = 0, branch_transport = 0,
                branch_locations = 0;
     };
-    PayloadReport payload_report() const {
+    struct PayloadAccounting {
+        NetworkPayload networks;
+        std::set<const SamplingNetworkPlan*> proposals;
+        std::set<const Plan*> transports;
+    };
+    PayloadReport payload_report(PayloadAccounting& counted) const {
         PayloadReport out;
-        NetworkPayload payload;
+        auto& payload = counted.networks;
         for(const auto& [stage, engine] : plans.prepared)
             for(const auto& [spec, cached] : engine->plan->networks) {
                 auto before = payload.shared.size();
                 out.networks += payload.network(*cached.network);
                 out.persistent_networks += payload.shared.size() != before;
             }
-        out.proposal = history ? history->payload_bytes() : 0;
+        for(const auto& [certificate, resource] : parallel_resources) out.networks += payload.resource(resource);
+        if(history && counted.proposals.insert(history.get()).second) out.proposal += history->payload_bytes();
         for(const auto& [purpose, rows] : completed_caps) out.proposal += NetworkPayload::rows(rows);
         auto continuation_bytes = [](const auto& map) {
             size_t bytes = 24;
@@ -128,14 +140,11 @@ struct CompiledExperiment {
                 for(const auto& image : *images) bytes += image.x.payload_bytes() + image.z.payload_bytes() + 4;
             return bytes;
         };
-        for(const auto& [stage, engine] : plans.prepared)
-            if(engine->plan->compiled.plan.continuation)
-                out.proposal += continuation_bytes(*engine->plan->compiled.plan.continuation);
-        std::set<const Plan*> counted;
         for(const auto& [stage, engine] : plans.prepared) {
             const auto& plan = engine->plan->compiled.plan;
-            if(!counted.insert(&plan).second) continue;
+            if(!counted.transports.insert(&plan).second) continue;
             if(plan.continuation) {
+                out.proposal += continuation_bytes(*plan.continuation);
                 out.branch_locations += plan.locations.size();
                 out.branch_transport += continuation_bytes(*plan.continuation);
                 continue;
@@ -171,7 +180,61 @@ struct CompiledExperiment {
         family = plan_file_queries(this->source.controls,
                 this->source.recovery_controls ? &*this->source.recovery_controls : nullptr, this->task.boundaries);
     }
+    // Workers own counters, limits and draw state, but reuse the completed
+    // compiler output. Reference certificates and sampling transport are
+    // immutable; SamplingNetworkSession keeps actual contractions per draw.
+    explicit CompiledExperiment(const CompiledExperiment& parent)
+        : source(parent.source), task(parent.task), noise_owner(parent.noise_owner), noise(*noise_owner),
+          limits(parent.limits), database(parent.database), plans(source, limits, database, context),
+          family(parent.family) {
+        share_prepared(parent);
+    }
+    void share_prepared(const CompiledExperiment& parent) {
+        if(!parent.complete) throw std::logic_error("worker requires a completed execution plan");
+        if(complete) return;
+        plans.share_prepared(parent.plans);
+        sector_rows = parent.sector_rows;
+        sector_support = parent.sector_support;
+        history = parent.history;
+        proposal = parent.proposal;
+        completed_caps = parent.completed_caps;
+        target_normalization = parent.target_normalization;
+        target_normalization_ready = parent.target_normalization_ready;
+        resources = parent.resources;
+        complete = true;
+    }
+    void prepare_parallel_resources() {
+        if(parallel_resources_ready) return;
+        auto local_owner = [](const auto& shared) {
+            using Pointer = std::decay_t<decltype(shared)>;
+            if(!shared) return Pointer{};
+            // The alias has its own control block and pins the original owner
+            // once. Results can outlive this runtime without dangling views.
+            return Pointer(std::make_shared<Pointer>(shared), shared.get());
+        };
+        std::map<const ResourceCertificate*, PhaseResource> prepared;
+        for(const auto& [stage, queries] : resources)
+            for(const auto& [purpose, network] : queries)
+                if(auto* certificate = network->fixed_certificate()) {
+                    if(prepared.count(certificate)) continue;
+                    auto value = certificate->reference;
+                    value.prepared_entries = local_owner(certificate->reference.prepared_entries);
+                    value.contraction = local_owner(certificate->reference.contraction);
+                    value.entry_plans = local_owner(certificate->reference.entry_plans);
+                    prepared.emplace(certificate, std::move(value));
+                }
+        parallel_resources = std::move(prepared);
+        parallel_resources_ready = true;
+    }
+    const PhaseResource* parallel_resource(const CompiledNetwork& network) const {
+        if(!context.shared_budget) return nullptr;
+        auto found = parallel_resources.find(network.fixed_certificate());
+        return found == parallel_resources.end() ? nullptr : &found->second;
+    }
     void prepare() {
+        // A published boundary may be shared by idle workers. Reconfiguration
+        // replaces its owners instead of modifying the published metadata.
+        if(complete) return;
         prepare_target_normalization();
         auto stage = source.stage("recovery");
         std::shared_ptr<FileBoundary> engine, target;
@@ -189,7 +252,7 @@ struct CompiledExperiment {
         if(needs_history()) {
             auto sampling = prepare_reference_network(*engine, "sampling");
             auto tick = std::chrono::steady_clock::now();
-            history = std::make_unique<SamplingNetworkPlan>(sampling);
+            history = std::make_shared<const SamplingNetworkPlan>(sampling);
             proposal = limits.capped_affine;
             if(proposal) {
                 for(auto& item : resources[stage])
@@ -265,7 +328,7 @@ private:
             const DecisionValues& recovery_values, const NamedRows& known, const std::vector<int>& outcomes,
             const Bits& sector, const std::vector<Bits>* numerical = nullptr, const Frame* supplied_frame = nullptr,
             SamplingNetworkSession* session = nullptr) {
-        auto target = plans.get("target");
+        auto target = plans.get_prepared("target");
         Frame local;
         if(!supplied_frame) {
             auto actual = assignment(*target, noise, values, recovery_values, "target");
@@ -375,35 +438,35 @@ public:
         context.compile_seconds += std::chrono::duration<double>(std::chrono::steady_clock::now() - tick).count();
         return reference_network;
     }
-    ReferenceRows history_coordinates(FileBoundary& engine, const std::string& purpose, const NamedRows& names,
+    ReferenceRows history_coordinates(const FileBoundary& engine, const std::string& purpose, const NamedRows& names,
             const std::vector<Bits>* numerical) {
-        auto parent = prepare_reference_network(engine, purpose);
+        const auto& parent = engine.reference_networks.at(purpose);
         return numerical ? engine.reference_records.at(purpose)(*numerical)
                          : ReferenceRows{parent->coordinates(engine.rows(names))};
     }
-    BoundaryResult reference_query_coordinates(FileBoundary& engine, const std::string& purpose, const Frame& frame,
+    BoundaryResult reference_query_coordinates(const FileBoundary& engine, const std::string& purpose, const Frame& frame,
             const ReferenceRows& keep, const ReferenceRows& events, const std::vector<int>& outcomes,
             const Bits& sector = {}) {
-        auto reference_network = prepare_reference_network(engine, purpose);
+        const auto& reference_network = engine.reference_networks.at(purpose);
         context.start_query(limits);
         auto tick = std::chrono::steady_clock::now();
         Workspace ws;
-        auto result = reference_network->query_coordinates(*engine.plan, frame, keep, events, outcomes, ws, sector);
+        auto result = reference_network->query_coordinates(*engine.plan, frame, keep, events, outcomes, ws, sector,
+                parallel_resource(*reference_network->reference));
         context.reference_network_evaluations[purpose]++;
         context.reference_network_resource_constructions += result.diagnostics.resource_constructions;
         context.reference_network_coordinate_constructions += result.diagnostics.phase_coordinate_constructions;
         context.kernel_seconds += std::chrono::duration<double>(std::chrono::steady_clock::now() - tick).count();
-        engine.plan->finish_preparation();
         return result;
     }
-    Scalar reference_total_coordinates(FileBoundary& engine, const std::string& purpose, const Frame& frame,
+    Scalar reference_total_coordinates(const FileBoundary& engine, const std::string& purpose, const Frame& frame,
             const ReferenceRows& events, const std::vector<int>& outcomes, const Bits& sector = {}) {
         auto result = reference_query_coordinates(engine, purpose, frame, {}, events, outcomes, sector);
         Workspace ws;
         return boundary_sum(result.terms, {}, {}, ws);
     }
     Scalar completed_total(
-            FileBoundary& engine, const std::string& purpose, const Frame& frame, SamplingNetworkSession& session) {
+            const FileBoundary& engine, const std::string& purpose, const Frame& frame, SamplingNetworkSession& session) {
         context.start_query(limits);
         auto tick = std::chrono::steady_clock::now();
         Workspace ws;
@@ -415,7 +478,8 @@ public:
             for(const auto& row : completed_caps.at(purpose)) caps.push_back(session.committed.value(row));
             auto result = parent.reference->evaluate(frame, engine.plan->compiled.plan.magic, caps, false, ws,
                     engine.plan->limits, &engine.plan->database, true,
-                    purpose != "fidelity" || engine.plan->compiled.plan.continuation ? &session.common : nullptr);
+                    purpose != "fidelity" || engine.plan->compiled.plan.continuation ? &session.common : nullptr,
+                    parallel_resource(*parent.reference));
             total = boundary_sum(result.terms, {}, {}, ws);
             context.reference_network_resource_constructions += result.diagnostics.resource_constructions;
             context.reference_network_coordinate_constructions += result.diagnostics.phase_coordinate_constructions;
@@ -434,6 +498,8 @@ public:
             proposal = false;
             plans.clear();
             resources.clear();
+            parallel_resources.clear();
+            parallel_resources_ready = false;
             complete = false;
         }
         limits = std::move(updated);
@@ -470,7 +536,7 @@ public:
             const std::vector<Bits>* numerical = nullptr, const ReferenceRows* sampling_rows = nullptr,
             const Frame* supplied_frame = nullptr, const Frame* target_frame = nullptr,
             const Scalar* sampled_mass = nullptr) {
-        auto engine = plans.get(source.stage("recovery"));
+        auto engine = plans.get_prepared(source.stage("recovery"));
         Assignment packed;
         Frame local;
         if(!supplied_frame) {
@@ -490,7 +556,7 @@ public:
         else if(session || proposal) {
             std::optional<SamplingNetworkSession> local;
             if(!session) {
-                local.emplace(*history, *engine->plan, sector);
+                local.emplace(*history, *engine->plan, sector, parallel_resource(*history->parent->reference));
                 session = &*local;
             }
             context.start_query(limits);
@@ -529,7 +595,7 @@ public:
             // batch draws, causal draws, enumeration and explicit assignments.
             // The target suffix receives no original-location faults.
             Frame continued;
-            auto target = plans.get("target");
+            auto target = plans.get_prepared("target");
             if(!target_frame && target->plan->compiled.plan.continuation) {
                 continued = target->plan->compiled.plan.continuation->apply(frame);
                 target_frame = &continued;
@@ -553,7 +619,8 @@ private:
         ReferenceRows known_coordinates;
         DecisionValues values, recovery_values;
         ReferenceAssignment protocol_assignment;
-        std::shared_ptr<FileBoundary> engine;
+        std::shared_ptr<const FileBoundary> engine_owner;
+        const FileBoundary* engine = nullptr;
         Bits sector;
         Scalar sampled_mass{1};
         std::optional<SamplingNetworkSession> session;
@@ -572,7 +639,11 @@ private:
                         result.noise.actions.erase(found);
                     }
                 }
-            engine = run.plans.get(run.source.stage("recovery"));
+            // Parallel execution pins every repository until the job completes
+            // and forbids reentry. Avoid contending on a shared owner count on
+            // each draw; serial callbacks retain the existing lifetime pin.
+            engine = run.plans.get_prepared(
+                    run.source.stage("recovery"), run.context.shared_budget ? nullptr : &engine_owner);
             protocol_assignment.apply(engine->feedback_constant);
             protocol_assignment.append(engine->plan->compiled.plan,
                     engine->pack(run.source.original_faults(result.noise), result.noise.flips).faults);
@@ -604,7 +675,8 @@ private:
         void prepare_session() {
             if(run.history) {
                 auto tick = std::chrono::steady_clock::now();
-                session.emplace(*run.history, *engine->plan, sector);
+                session.emplace(*run.history, *engine->plan, sector,
+                        run.parallel_resource(*run.history->parent->reference));
                 run.context.support_seconds +=
                         std::chrono::duration<double>(std::chrono::steady_clock::now() - tick).count();
             }
@@ -615,7 +687,7 @@ private:
             ReferenceRows rows;
             if(!request.pending.empty()) {
                 const auto& frame = protocol_assignment.frame;
-                auto reference_network = run.prepare_reference_network(*engine, "sampling");
+                const auto& reference_network = engine->reference_networks.at("sampling");
                 const auto& record_map = engine->reference_records.at("sampling");
                 rows = record_map(request.pending);
                 session->committed.synchronize(frame);

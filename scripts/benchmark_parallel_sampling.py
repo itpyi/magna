@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import signal
 import statistics
 import subprocess
 import sys
@@ -57,6 +58,25 @@ def source_digest():
     return digest.hexdigest()
 
 
+def run_command(command, timeout, measure_rss):
+    if not measure_rss:
+        return subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+    # GNU time is an observer process. Keep its child in the same new process
+    # group so timing out the benchmark also stops the actual task runner.
+    with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                          text=True, start_new_session=True) as process:
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+        except (subprocess.TimeoutExpired, KeyboardInterrupt):
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.communicate()
+            raise
+        return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('directories', type=Path, nargs='+')
@@ -70,8 +90,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     workers = list(dict.fromkeys(args.workers))
-    if 1 not in workers:
-        parser.error('--workers must include 1 for the serial baseline')
+    baseline_workers = min(workers)
     runner = str(ROOT / 'scripts/run_task.py')
     runner_help = subprocess.check_output([sys.executable, runner, '--help'], text=True)
     runner_supports_workers = '--workers' in runner_help
@@ -83,7 +102,8 @@ def main():
                                    logical_cpus=os.cpu_count(),
                                    affinity_cpus=len(os.sched_getaffinity(0))
                                    if hasattr(os, 'sched_getaffinity') else None),
-                  workers=workers, repeats=args.repeats, runs=[], summary=[])
+                  workers=workers, baseline_workers=baseline_workers,
+                  repeats=args.repeats, runs=[], summary=[])
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
     def save():
@@ -91,6 +111,10 @@ def main():
 
     with tempfile.TemporaryDirectory(prefix='magna-benchmark-') as temporary:
         result_path = Path(temporary) / 'result.json'
+        rss_path = Path(temporary) / 'peak-rss.txt'
+        # GNU time reports this individual child's peak RSS; RUSAGE_CHILDREN's
+        # ru_maxrss is a cumulative maximum and cannot be differenced per run.
+        measure_rss = sys.platform.startswith('linux') and Path('/usr/bin/time').is_file()
         for directory in args.directories:
             directory = directory.resolve()
             config = json.loads((directory / 'run.json').read_text())
@@ -106,13 +130,16 @@ def main():
                     # The unchanged serial command also benchmarks older revisions.
                     if runner_supports_workers:
                         command += ['--workers', str(count)]
+                    if measure_rss:
+                        command = ['/usr/bin/time', '-f', '%M', '-o', str(rss_path), *command]
                     before = load_average()
                     usage = resource.getrusage(resource.RUSAGE_CHILDREN) if resource else None
                     started = perf_counter()
-                    completed = subprocess.run(command, capture_output=True, text=True,
-                                               timeout=args.timeout)
+                    completed = run_command(command, args.timeout, measure_rss)
                     wall_seconds = perf_counter() - started
                     resources = child_resources(usage)
+                    if measure_rss and completed.returncode == 0:
+                        resources['peak_rss_kib'] = int(rss_path.read_text().strip())
                     if completed.returncode:
                         save()
                         raise RuntimeError(f'Task runner failed ({directory.name}, workers={count}):\n'
@@ -143,8 +170,9 @@ def main():
                                                        for entry in entries))
             for count, times in medians.items():
                 report['summary'].append(dict(task=directory.name, shots=shots, workers=count,
-                    **times, wall_speedup=medians[1]['wall_seconds'] / times['wall_seconds'],
-                    sampling_speedup=medians[1]['sampling_seconds'] / times['sampling_seconds'],
+                    **times, baseline_workers=baseline_workers,
+                    wall_speedup=medians[baseline_workers]['wall_seconds'] / times['wall_seconds'],
+                    sampling_speedup=medians[baseline_workers]['sampling_seconds'] / times['sampling_seconds'],
                     shots_per_sampling_second=shots / times['sampling_seconds']))
             save()
     return 0
