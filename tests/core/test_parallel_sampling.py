@@ -3,12 +3,15 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 import json
 import math
+import os
 from pathlib import Path
 from random import Random
 import runpy
 import signal
+import subprocess
 import sys
 import tempfile
+import textwrap
 import time
 import unittest
 from unittest.mock import patch
@@ -96,6 +99,24 @@ class ParallelSamplingTests(unittest.TestCase):
                 self.assertEqual(result['sampled_records'], [[1]] * shots)
                 self.assertEqual(result['failed'] + result['not_attempted'], 0)
 
+    def test_multiple_windows_and_reused_worker_counts_preserve_order(self):
+        circuit = parse_circuit('X_ERROR(1/5) 0\nM(1/7) 0\nOBSERVABLE_INCLUDE(0) rec[-1]')
+        task = {'error_observables': [0], 'sample_records': [0]}
+        compiled = compile_circuit(circuit, task=task)
+        expected = run(circuit, task=task, shots=4113, seed=781, workers=2)
+        for workers, interval in ((16, None), (64, 1021), (32, 2049)):
+            with self.subTest(workers=workers), redirect_stderr(StringIO()):
+                actual = run(compiled, shots=4113, seed=781, workers=workers,
+                             progress_every=interval)
+                self.assert_same_draws(actual, expected)
+        # A large idle pool must also handle fewer draws than workers, then grow active use again.
+        short = run(circuit, task=task, shots=7, seed=781, workers=2)
+        for workers, interval in ((2, 3), (64, 1), (16, None)):
+            with self.subTest(workers=workers, interval=interval), redirect_stderr(StringIO()):
+                actual = run(compiled, shots=7, seed=781, workers=workers, progress_every=interval)
+                self.assert_same_draws(actual, short)
+                self.assertEqual(actual['sampled_records'], expected['sampled_records'][:7])
+
     def test_physical_and_importance_estimates_match_independent_noise_law(self):
         # The reported bit is the XOR of independent Bernoulli(1/5), Bernoulli(1/7).
         circuit = parse_circuit('X_ERROR(1/5) 0\nM(1/7) 0\nOBSERVABLE_INCLUDE(0) rec[-1]')
@@ -177,6 +198,87 @@ class ParallelSamplingTests(unittest.TestCase):
         for workers in (4, 1, 2):
             result = run(compiled, shots=19, workers=workers)
             self.assertEqual((result['status'], result['completed']), ('complete', 19), result['failures'])
+
+    def test_callback_failure_after_completed_window_clears_pending_work(self):
+        calls = [0]
+        fail_after = [None]
+        registry = ControllerRegistry()
+        def decoder(bits, config):
+            calls[0] += 1
+            if fail_after[0] is not None and calls[0] > fail_after[0]:
+                raise ValueError('failure after completed window')
+            return bits
+        registry.register('echo', decoder, version='1')
+        circuit = parse_circuit('H 0\nM 0\nDETECTOR rec[-1]\n'
+                                'CONTROL[echo] det[-1] -> ctrl[0]\nCX ctrl[0] 1', controllers=registry)
+        compiled = compile_circuit(circuit, task={'outputs': [1], 'sample_records': [0]})
+        expected = run(compiled, shots=67, seed=31, workers=2)
+        calls[0] = 0
+        fail_after[0] = 13
+        with redirect_stderr(StringIO()):
+            failed = run(compiled, shots=67, seed=31, workers=16, progress_every=13)
+        self.assertEqual((failed['status'], failed['completed'], failed['failed']), ('failed', 13, 1))
+        self.assertEqual(failed['failures'][0]['shot'], 13)
+        self.assertEqual(failed['failures'][0]['type'], 'ValueError')
+        self.assertEqual(failed['sampled_records'], expected['sampled_records'][:13])
+        self.assertEqual(failed['not_attempted'], 53)
+        fail_after[0] = None
+        for workers in (32, 2, 16):
+            calls[0] = 0
+            actual = run(compiled, shots=67, seed=31, workers=workers)
+            self.assert_same_draws(actual, expected)
+            self.assertEqual(calls[0], 67)
+
+    def test_idle_workers_are_disposed_before_interpreter_shutdown(self):
+        # A subprocess turns a destructor/GIL deadlock into a bounded test failure.
+        code = f'import sys\nsys.path[:0] = {sys.path!r}\n' + textwrap.dedent('''\
+            import gc
+            from magna import ControllerRegistry, compile_circuit, parse_circuit, run
+            registry = ControllerRegistry()
+            registry.register('echo', lambda bits, config: bits, version='1')
+            circuit = parse_circuit('H 0\\nM 0\\nDETECTOR rec[-1]\\n'
+                                    'CONTROL[echo] det[-1] -> ctrl[0]\\nCX ctrl[0] 1',
+                                    controllers=registry)
+            for attempt in range(3):
+                compiled = compile_circuit(circuit)
+                result = run(compiled, shots=67, workers=16)
+                assert result['status'] == 'complete', result['failures']
+                if attempt < 2:
+                    del compiled
+                    gc.collect()
+            # Leave the final compiled circuit alive during Python finalization.
+            print('worker disposal complete')
+        ''')
+        process = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, timeout=30)
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+        self.assertIn('worker disposal complete', process.stdout)
+
+    @unittest.skipUnless(hasattr(os, 'fork'), 'POSIX fork required')
+    def test_forked_process_can_reuse_and_dispose_an_idle_parallel_circuit(self):
+        code = f'import sys\nsys.path[:0] = {sys.path!r}\n' + textwrap.dedent('''\
+            import os
+            from magna import compile_circuit, parse_circuit, run
+            compiled = compile_circuit(parse_circuit('X_ERROR(1/5) 0\\nM 0'),
+                                       task={'sample_records': [0]})
+            expected = run(compiled, shots=97, seed=52, workers=16)
+            for reuse in (True, False):
+                pid = os.fork()
+                if pid == 0:
+                    if reuse:
+                        actual = run(compiled, shots=97, seed=52, workers=32)
+                        assert actual['status'] == 'complete', actual['failures']
+                        assert actual['sampled_records'] == expected['sampled_records']
+                    # Normal exit also disposes pools inherited but never reused.
+                    sys.exit(0)
+                _, status = os.waitpid(pid, 0)
+                assert os.waitstatus_to_exitcode(status) == 0, status
+            actual = run(compiled, shots=97, seed=52, workers=2)
+            assert actual['sampled_records'] == expected['sampled_records']
+            print('forked worker disposal complete')
+        ''')
+        process = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, timeout=30)
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+        self.assertIn('forked worker disposal complete', process.stdout)
 
     def test_query_budget_is_shared_and_partial_results_keep_a_completed_prefix(self):
         circuit = parse_circuit('X_ERROR(1/3) 0\nM 0')

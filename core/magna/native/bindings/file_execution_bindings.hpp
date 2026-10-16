@@ -24,6 +24,7 @@ struct PythonCallbackError : std::exception {
 struct FileExecutionBinding {
     std::shared_ptr<CompiledExperiment> run;
     std::vector<std::unique_ptr<CompiledExperiment>> workers;
+    ParallelFileExecutor parallel;
     PyObject* callbacks = nullptr;
     ~FileExecutionBinding() { Py_XDECREF(callbacks); }
 };
@@ -286,14 +287,27 @@ struct SignalCheck {
         if(PyErr_CheckSignals() < 0) throw PendingPythonError();
     }
 };
+// The caller owns the GIL. Parallel windows acquire it once for all of their
+// ordinary getrandbits(64) calls, preserving the existing draw seed stream.
+uint64_t execution_seed(PyObject* rng) {
+    Object value(PyObject_CallMethod(rng, "getrandbits", "i", 64));
+    if(!value.p) throw PendingPythonError();
+    auto result = PyLong_AsUnsignedLongLong(value.p);
+    if(PyErr_Occurred()) throw std::invalid_argument("RNG uint64 required");
+    return uint64_t(result);
+}
+std::vector<uint64_t> execution_seeds(PyObject* rng, size_t count) {
+    CallbackGIL gil;
+    std::vector<uint64_t> seeds;
+    seeds.reserve(count);
+    for(size_t j = 0; j < count; j++) seeds.push_back(execution_seed(rng));
+    return seeds;
+}
 ExecutionHooks execution_hooks(FileExecutionBinding& owner, PyObject* rng) {
     ExecutionHooks hooks;
     hooks.seed = [rng]() {
         CallbackGIL gil;
-        Object value(PyObject_CallMethod(rng, "getrandbits", "i", 64));
-        auto result = PyLong_AsUnsignedLongLong(value.p);
-        if(PyErr_Occurred()) throw std::invalid_argument("RNG uint64 required");
-        return uint64_t(result);
+        return execution_seed(rng);
     };
     hooks.controller = [&owner](const std::string& stage, size_t index, const std::vector<int>& bits, size_t count) {
         CallbackGIL gil;
@@ -375,7 +389,9 @@ PyObject* advance_file_batch(PyObject*, PyObject* args) {
         native_work([&]() {
             SignalCheck signals;
             if(workers > 1)
-                advance_parallel_file_batch(*owner->run, owner->workers, *batch, count, workers, hooks, signals);
+                advance_parallel_file_batch(
+                        *owner->run, owner->workers, owner->parallel, *batch, count, workers, hooks, signals,
+                        [rng](size_t size) { return execution_seeds(rng, size); });
             else
                 for(size_t j = 0; j < count; j++) {
                     batch->add(owner->run->sample(hooks));

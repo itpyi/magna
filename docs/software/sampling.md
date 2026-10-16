@@ -163,12 +163,18 @@ option overrides it. Parallelism applies to physical and importance sampling and
 both history samplers. It does not change the exact per-draw calculation or the
 estimator. Results and requested records are accumulated in draw order.
 
-Each native worker owns its mutable execution state and prepared networks. Workers
-are reused by repeated runs of the same compiled circuit. The compiled circuit retains
-the largest worker cache it has used, so its memory cost grows with that count.
-Small runs may be slower because of worker preparation
-and scheduling. Start with a worker count no larger than the available CPU cores,
+Each native worker owns its mutable execution state and prepared networks. The compiled
+circuit reuses its threads across sampling batches and repeated runs. It retains the
+largest worker pool and cache it has used, so its memory cost grows with that count.
+Threads wait without sampling between runs; reducing `workers` leaves extra threads
+idle. Releasing the compiled circuit shuts down its threads and releases its caches.
+Small runs may be slower because of worker preparation and scheduling.
+Start with a worker count no larger than the available CPU cores,
 then compare `timings.sampling_seconds` and `timings.total_seconds` on your task.
+
+On POSIX systems, a completed compiled circuit can be inherited through `fork`.
+The child starts fresh threads on its next parallel run. Forking while sampling or
+a decoder callback is active is unsupported.
 
 Python decoder callbacks run with the Python interpreter lock. Their call order across
 draws is unspecified; callbacks should return a deterministic result from their inputs

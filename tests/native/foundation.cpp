@@ -770,6 +770,47 @@ void check_incremental_history_session() {
 }
 int main() {
     {
+        // A rejected row must not alter statistics or contaminate the reusable
+        // scratch storage used for the following draw's exponent changes.
+        using Row = std::vector<std::optional<ScientificValue>>;
+        ScientificAccumulator actual, expected;
+        auto same = [](const ScientificSummary& left, const ScientificSummary& right) {
+            require(left.count == right.count, "rejected scientific row preserves count");
+            require(left.estimates.size() == right.estimates.size() &&
+                            left.standard_errors.size() == right.standard_errors.size(),
+                    "rejected scientific row preserves column count");
+            for(size_t j = 0; j < left.estimates.size(); j++) {
+                require(left.estimates[j].scientific == right.estimates[j].scientific,
+                        "rejected scientific row preserves estimates");
+                require(left.standard_errors[j].scientific == right.standard_errors[j].scientific,
+                        "rejected scientific row preserves standard errors");
+            }
+        };
+        for(int64_t exponent : {-520, -500, 510, 520, 520}) {
+            Row valid{ScientificValue{.5, exponent}, ScientificValue{.125, exponent},
+                    ScientificValue{-.25, exponent}};
+            actual.add(valid);
+            expected.add(valid);
+            same(actual.summary(), expected.summary());
+            std::vector<Row> rejected{{}, {ScientificValue{.5, 1000}},
+                    {std::nullopt, ScientificValue{.25, 1000}, ScientificValue{.5, 1000}},
+                    {ScientificValue{.5, 1000}, std::nullopt, ScientificValue{.5, 1000}},
+                    {ScientificValue{.5, 1000}, ScientificValue{.25, 1000}, std::nullopt},
+                    {ScientificValue{std::numeric_limits<double>::quiet_NaN(), 1000},
+                            ScientificValue{.25, 1000}, ScientificValue{.5, 1000}}};
+            for(const auto& row : rejected) {
+                bool failed = false;
+                try {
+                    actual.add(row);
+                } catch(const std::invalid_argument&) {
+                    failed = true;
+                }
+                require(failed, "invalid scientific row is rejected");
+                same(actual.summary(), expected.summary());
+            }
+        }
+    }
+    {
         // Embed a small independently enumerable quadratic form across word
         // boundaries. Other coordinates have explicit one-variable Gauss sums.
         // Duplicate visible columns exercise non-injective output boundaries.

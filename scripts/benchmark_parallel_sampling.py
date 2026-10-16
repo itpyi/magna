@@ -11,6 +11,11 @@ import sys
 import tempfile
 from time import perf_counter
 
+try:
+    import resource
+except ImportError:  # Unavailable on Windows.
+    resource = None
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,6 +29,17 @@ def positive(value):
 
 def load_average():
     return list(os.getloadavg()) if hasattr(os, 'getloadavg') else None
+
+
+def child_resources(before):
+    if before is None:
+        return None
+    after = resource.getrusage(resource.RUSAGE_CHILDREN)
+    return dict(user_seconds=after.ru_utime - before.ru_utime,
+                system_seconds=after.ru_stime - before.ru_stime,
+                voluntary_switches=after.ru_nvcsw - before.ru_nvcsw,
+                involuntary_switches=after.ru_nivcsw - before.ru_nivcsw,
+                minor_faults=after.ru_minflt - before.ru_minflt)
 
 
 def source_digest():
@@ -91,10 +107,12 @@ def main():
                     if runner_supports_workers:
                         command += ['--workers', str(count)]
                     before = load_average()
+                    usage = resource.getrusage(resource.RUSAGE_CHILDREN) if resource else None
                     started = perf_counter()
                     completed = subprocess.run(command, capture_output=True, text=True,
                                                timeout=args.timeout)
                     wall_seconds = perf_counter() - started
+                    resources = child_resources(usage)
                     if completed.returncode:
                         save()
                         raise RuntimeError(f'Task runner failed ({directory.name}, workers={count}):\n'
@@ -104,7 +122,8 @@ def main():
                         raise RuntimeError(f'Incomplete benchmark result: {result}')
                     entry = dict(task=directory.name, workers=count, repeat=repeat,
                                  shots=shots, seed=args.seed + repeat, wall_seconds=wall_seconds,
-                                 load_before=before, load_after=load_average(), result=result)
+                                 load_before=before, load_after=load_average(), resources=resources,
+                                 result=result)
                     report['runs'].append(entry)
                     task_runs.append(entry)
                     save()
