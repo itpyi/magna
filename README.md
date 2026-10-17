@@ -65,10 +65,13 @@ The [shared-plan scaling follow-up](docs/development/shared-plan-sampling-benchm
 measures worker preparation, memory use, and 32/64-worker scaling at larger sample counts.
 The [merge preparation measurements](docs/development/parallel-sampling-merge-summary.md)
 cover eight example tasks at 1, 2, 4, 8, 16, 32, and 64 workers, with throughput,
-speedup, memory, host load, and result-consistency evidence.
+speedup, memory, host load, and result-consistency evidence. Each row identifies
+its measured version and round; `dk` uses the optimized callback measurements.
 The [decoder callback follow-up](docs/development/decoder-callback-benchmark.md)
 profiles Python callback overhead and compares `dk` before and after adapter
 optimizations at 1–64 workers, with a native-only control and exact result checks.
+The [final merge review](docs/development/parallel-sampling-final-review.md)
+records source provenance, installed-wheel acceptance, and remaining validation limits.
 
 ## License
 

@@ -6,6 +6,10 @@ sampling interfaces remain unchanged. The baseline is `5533543`, whose productio
 code matches the [eight-task scaling report](parallel-sampling-merge-summary.md).
 The new comparisons below are fresh paired measurements, not ratios against that
 earlier session's timings.
+The optimized snapshot was subsequently committed as `46a4769`; its 128 recorded
+production inputs match that commit after newline normalization. The
+[consolidated benchmark summary](parallel-sampling-merge-summary.md) uses the
+candidate measurements from this report as round B, alongside native rows from round A.
 
 ## Diagnosis and implementation
 
@@ -206,6 +210,9 @@ The complete regression suite ran 382 tests: 370 passed and
 12 installed-wheel tests were skipped because `MAGNA_INSTALLED_PYTHON` was unset.
 The documentation checks and strict MkDocs build also passed. Commands and results are recorded
 in the [machine-readable evidence](benchmark-results/decoder-callback-20261017.json).
+The later [final merge review](parallel-sampling-final-review.md) closes the
+installed-wheel validation gap: all 12 installation tests and all 27 parallel
+regressions pass against a fresh wheel built from `46a4769`.
 The initial regression attempt could not build the test-only oracle extension
 because its default `clang++` was unavailable; setting `CXX=g++` selected the same
 compiler family as the production build for the successful rerun.
