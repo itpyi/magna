@@ -63,6 +63,9 @@ The [parallel sampling benchmark](docs/development/parallel-sampling-benchmark.m
 records reproducible measurements through the public task runner.
 The [shared-plan scaling follow-up](docs/development/shared-plan-sampling-benchmark.md)
 measures worker preparation, memory use, and 32/64-worker scaling at larger sample counts.
+The [merge preparation measurements](docs/development/parallel-sampling-merge-summary.md)
+cover eight example tasks at 1, 2, 4, 8, 16, 32, and 64 workers, with throughput,
+speedup, memory, host load, and result-consistency evidence.
 
 ## License
 
