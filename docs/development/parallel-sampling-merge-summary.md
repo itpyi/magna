@@ -6,6 +6,10 @@ native binary. No intermediate implementation or unmeasured optimization is
 included. The results cover workers 1, 2, 4, 8, 16, 32, and 64 with three fresh
 processes per configuration: 168 complete observations.
 
+The subsequent [decoder callback follow-up](decoder-callback-benchmark.md)
+profiles and reduces the Python adapter overhead, with fresh paired `dk`
+measurements. The tables here retain the original pre-optimization results.
+
 ## Workloads and method
 
 | Category | Task | Shots per observation |

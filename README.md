@@ -66,6 +66,9 @@ measures worker preparation, memory use, and 32/64-worker scaling at larger samp
 The [merge preparation measurements](docs/development/parallel-sampling-merge-summary.md)
 cover eight example tasks at 1, 2, 4, 8, 16, 32, and 64 workers, with throughput,
 speedup, memory, host load, and result-consistency evidence.
+The [decoder callback follow-up](docs/development/decoder-callback-benchmark.md)
+profiles Python callback overhead and compares `dk` before and after adapter
+optimizations at 1–64 workers, with a native-only control and exact result checks.
 
 ## License
 

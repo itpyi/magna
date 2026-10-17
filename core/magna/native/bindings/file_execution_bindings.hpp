@@ -1,4 +1,18 @@
 // Only explicit language callbacks and value adapters live in this layer.
+PyObject* controller_bits_valid(PyObject*, PyObject* values) {
+    if(!PyTuple_CheckExact(values)) {
+        PyErr_SetString(PyExc_TypeError, "controller bits must be a tuple");
+        return nullptr;
+    }
+    for(Py_ssize_t j = 0; j < PyTuple_GET_SIZE(values); j++) {
+        auto* bit = PyTuple_GET_ITEM(values, j);
+        if(!PyLong_CheckExact(bit) && !PyBool_Check(bit)) Py_RETURN_FALSE;
+        int overflow = 0;
+        auto value = PyLong_AsLongAndOverflow(bit, &overflow);
+        if(overflow || (value != 0 && value != 1)) Py_RETURN_FALSE;
+    }
+    Py_RETURN_TRUE;
+}
 struct CallbackGIL {
     PyGILState_STATE state = PyGILState_Ensure();
     ~CallbackGIL() { PyGILState_Release(state); }

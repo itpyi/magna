@@ -313,6 +313,23 @@ class ParallelSamplingTests(unittest.TestCase):
             self.assertEqual(result['resources']['compilations'], 0)
             self.assertEqual(result['resources']['queries'], reference['resources']['queries'])
 
+    def test_callbacks_that_release_the_gil_can_overlap(self):
+        barrier = threading.Barrier(4)
+        calls = []
+        def decoder(bits, config):
+            calls.append(tuple(bits))
+            if len(calls) <= 4:
+                barrier.wait(timeout=10)
+            return bits
+        registry = ControllerRegistry()
+        registry.register('echo', decoder, version='1')
+        circuit = parse_circuit('H 0\nM 0\nDETECTOR rec[-1]\n'
+                                'CONTROL[echo] det[-1] -> ctrl[0]\nCX ctrl[0] 1',
+                                controllers=registry)
+        result = run(circuit, shots=17, seed=13, workers=4, task={'outputs': [1]})
+        self.assertEqual(result['status'], 'complete', result['failures'])
+        self.assertEqual(len(calls), 17)
+
     def test_controller_failure_is_reported_and_compiled_circuit_remains_usable(self):
         fail = [True]
         registry = ControllerRegistry()
@@ -397,8 +414,13 @@ class ParallelSamplingTests(unittest.TestCase):
     def test_forked_process_can_reuse_and_dispose_an_idle_parallel_circuit(self):
         code = f'import sys\nsys.path[:0] = {sys.path!r}\n' + textwrap.dedent('''\
             import os
-            from magna import compile_circuit, parse_circuit, run
-            compiled = compile_circuit(parse_circuit('H 0\\nT 0\\nZ_ERROR(1/5) 0\\nMX 0'),
+            from magna import ControllerRegistry, compile_circuit, parse_circuit, run
+            registry = ControllerRegistry()
+            registry.register('echo', lambda bits, config: bits, version='1')
+            compiled = compile_circuit(parse_circuit(
+                'H 0\\nT 0\\nZ_ERROR(1/5) 0\\nMX 0\\nDETECTOR rec[-1]\\n'
+                'CONTROL[echo] det[-1] -> ctrl[0]\\nCX ctrl[0] 0',
+                controllers=registry),
                                        task={'sample_records': [0]}, ideal_state=parse_circuit('H 0'))
             expected = run(compiled, shots=97, seed=52, workers=16)
             for reuse in (True, False):
