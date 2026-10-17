@@ -162,7 +162,7 @@ struct ReferenceNetwork {
     }
     BoundaryResult query_coordinates(const BoundaryTracePlan& plan, const Frame& frame, const ReferenceRows& keep,
             const ReferenceRows& events, const std::vector<int>& outcomes, Workspace& ws,
-            const Bits& virtual_sector = {}) const {
+            const Bits& virtual_sector = {}, const PhaseResource* local_resource = nullptr) const {
         auto caps = selection;
         auto actual = closed_values(frame, virtual_sector);
         for(size_t j = 0; j < closed.size(); j++) caps.push_back(actual.bit(j));
@@ -201,7 +201,8 @@ struct ReferenceNetwork {
             }
         }
         auto parent = reference->evaluate(
-                frame, plan.compiled.plan.magic, caps, false, ws, plan.limits, &plan.database, true);
+                frame, plan.compiled.plan.magic, caps, false, ws, plan.limits, &plan.database, true, nullptr,
+                local_resource);
         auto result =
                 contract_probability_labels(std::move(parent), boundary.keep, boundary.events, boundary.outcomes, ws);
         for(auto& [coefficient, ket] : result.terms) ket.base ^= boundary.offset;

@@ -1,0 +1,211 @@
+{
+  "status": "complete",
+  "source_commit": "46a4769",
+  "environment_setup_note": "System ensurepip is unavailable and pip 22 has no --python option; use venv --without-pip and execute the existing pip package with the isolated interpreter for an offline install.",
+  "source_archive_sha256": "82e0f0f1ec77ce7f30881eb19c0803a4e8b83b43e419aa22d6968f7bbca00cc6",
+  "wheel": "magna_quantum-0.1.0-cp310-cp310-linux_x86_64.whl",
+  "wheel_sha256": "7388f0ee068dd534fe260ffd561f8581bc3a65104580f960c40de4d44c703780",
+  "build_command": [
+    "CXX=g++",
+    "CC=gcc",
+    "/tmp/magna-parallel-20261016-1252/wheel-env/bin/python",
+    "-m",
+    "pip",
+    "wheel",
+    ".",
+    "--no-build-isolation",
+    "--no-deps",
+    "-w",
+    "../wheels"
+  ],
+  "checks": [
+    {
+      "label": "create-env",
+      "command": [
+        "/tmp/magna-parallel-20261016-1252/wheel-env/bin/python",
+        "-m",
+        "venv",
+        "--without-pip",
+        "/tmp/magna-final-check-20261017/wheel-env"
+      ],
+      "started_at": "2026-10-17T06:29:43.785671+00:00",
+      "finished_at": "2026-10-17T06:29:43.836713+00:00",
+      "exit_code": 0,
+      "output": ""
+    },
+    {
+      "label": "install",
+      "command": [
+        "/tmp/magna-final-check-20261017/wheel-env/bin/python",
+        "-I",
+        "/usr/lib/python3/dist-packages/pip",
+        "install",
+        "--no-index",
+        "--no-deps",
+        "/tmp/magna-final-check-20261017/wheels/magna_quantum-0.1.0-cp310-cp310-linux_x86_64.whl"
+      ],
+      "started_at": "2026-10-17T06:29:43.837034+00:00",
+      "finished_at": "2026-10-17T06:29:44.631908+00:00",
+      "exit_code": 0,
+      "output": "Processing /tmp/magna-final-check-20261017/wheels/magna_quantum-0.1.0-cp310-cp310-linux_x86_64.whl\nmagna-quantum is already installed with the same version as the provided wheel. Use --force-reinstall to force an installation of the wheel.\n"
+    },
+    {
+      "label": "build-decoder-fixture",
+      "command": [
+        "/tmp/magna-parallel-20261016-1252/wheel-env/bin/python",
+        "-m",
+        "pip",
+        "wheel",
+        "/tmp/magna-final-check-20261017/source/tests/fixtures/basic/decoder_plugin",
+        "--no-build-isolation",
+        "--no-deps",
+        "-w",
+        "/tmp/magna-final-check-20261017/fixture-wheels"
+      ],
+      "started_at": "2026-10-17T06:29:44.632312+00:00",
+      "finished_at": "2026-10-17T06:29:46.483611+00:00",
+      "exit_code": 0,
+      "output": "Looking in indexes: https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple\nProcessing ./tests/fixtures/basic/decoder_plugin\n  Preparing metadata (pyproject.toml): started\n  Preparing metadata (pyproject.toml): finished with status 'done'\nBuilding wheels for collected packages: magna-example-decoders\n  Building wheel for magna-example-decoders (pyproject.toml): started\n  Building wheel for magna-example-decoders (pyproject.toml): finished with status 'done'\n  Created wheel for magna-example-decoders: filename=magna_example_decoders-1.0.0-py3-none-any.whl size=1863 sha256=1ac7a7d814e64c71cb70ed8e73d1a2d812733e80c1d5fe38a2db2c9deb070243\n  Stored in directory: /tmp/pip-ephem-wheel-cache-jwg69ztd/wheels/f0/0f/74/81bb6be38c0be42534630aa687ab73209c2eb1ede0de1a88c5\nSuccessfully built magna-example-decoders\n"
+    },
+    {
+      "label": "install-decoder-fixture",
+      "command": [
+        "/tmp/magna-final-check-20261017/wheel-env/bin/python",
+        "-I",
+        "/usr/lib/python3/dist-packages/pip",
+        "install",
+        "--no-index",
+        "--no-deps",
+        "/tmp/magna-final-check-20261017/fixture-wheels/magna_example_decoders-1.0.0-py3-none-any.whl"
+      ],
+      "started_at": "2026-10-17T06:29:46.484001+00:00",
+      "finished_at": "2026-10-17T06:29:47.324589+00:00",
+      "exit_code": 0,
+      "output": "Processing /tmp/magna-final-check-20261017/fixture-wheels/magna_example_decoders-1.0.0-py3-none-any.whl\nInstalling collected packages: magna-example-decoders\nSuccessfully installed magna-example-decoders-1.0.0\n"
+    },
+    {
+      "label": "installed-interface",
+      "command": [
+        "/tmp/magna-final-check-20261017/wheel-env/bin/python",
+        "-I",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "/tmp/magna-final-check-20261017/source/tests/core",
+        "-p",
+        "test_installed_interface.py",
+        "-v"
+      ],
+      "started_at": "2026-10-17T06:29:47.325000+00:00",
+      "finished_at": "2026-10-17T06:29:50.022140+00:00",
+      "exit_code": 0,
+      "output": "test_getting_started_python_examples (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_importance_sampling_guide_and_installed_cli (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_installed_conditional_noise_fixed_reference_networks (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_installed_console_commands_and_seed_reproducibility (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_installed_external_decoder_binding (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_installed_history_progress_and_pilot (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_installed_low_weight_enumeration (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_installed_nonlinear_postselection_api_and_console (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_installed_record_success_entry (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_portable_directory_with_local_decoder_and_universal_runner (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_three_file_evaluation_with_installed_native_engine (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_wheel_global_query_and_legacy_api_without_protocol_paths (test_installed_interface.InstalledInterfaceTests) ... ok\n\n----------------------------------------------------------------------\nRan 12 tests in 2.628s\n\nOK\n"
+    },
+    {
+      "label": "installed-parallel",
+      "command": [
+        "/tmp/magna-final-check-20261017/wheel-env/bin/python",
+        "-I",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "/tmp/magna-final-check-20261017/source/tests/core",
+        "-p",
+        "test_parallel_sampling.py",
+        "-v"
+      ],
+      "started_at": "2026-10-17T06:29:50.022729+00:00",
+      "finished_at": "2026-10-17T06:29:53.007316+00:00",
+      "exit_code": 0,
+      "output": "test_existing_run_command_accepts_workers_and_progress (test_parallel_sampling.ParallelCommandLineTests) ... ok\ntest_portable_task_runner_reads_workers_and_accepts_an_override (test_parallel_sampling.ParallelCommandLineTests) ... ok\ntest_callback_failure_after_completed_window_clears_pending_work (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_callbacks_that_release_the_gil_can_overlap (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_compiled_circuit_can_switch_between_serial_and_parallel_runs (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_controller_failure_is_reported_and_compiled_circuit_remains_usable (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_deterministic_quantum_moments_match_the_exact_state (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_failed_reconfiguration_releases_shared_plans_and_recovers (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_fewer_shots_than_workers_and_partial_final_partition (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_forked_process_can_reuse_and_dispose_an_idle_parallel_circuit (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_idle_workers_are_disposed_before_interpreter_shutdown (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_main_thread_signal_interrupts_parallel_sampling (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_multiple_windows_and_reused_worker_counts_preserve_order (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_nonlinear_python_controller_keeps_records_and_feedback_consistent (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_one_worker_preserves_the_existing_seeded_stream (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_parallel_seed_and_record_order_are_independent_of_partition (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_physical_and_importance_estimates_match_independent_noise_law (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_preparation_failure_preserves_existing_result_contract (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_preparation_is_shared_when_the_worker_pool_grows (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_prepared_source_lifetime_and_independent_parallel_circuits (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_query_budget_is_shared_and_partial_results_keep_a_completed_prefix (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_reconfiguring_a_compiled_circuit_updates_cached_workers (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_shared_network_payload_is_not_counted_per_worker (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_shared_plans_keep_guarded_recovery_and_moment_scratch_independent (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_signal_handler_cannot_reenter_a_runtime_used_by_parallel_workers (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_time_budget_applies_to_all_workers_and_can_be_removed_for_reuse (test_parallel_sampling.ParallelSamplingTests) ... ok\ntest_workers_requires_a_positive_integer (test_parallel_sampling.ParallelSamplingTests) ... ok\n\n----------------------------------------------------------------------\nRan 27 tests in 2.792s\n\nOK\n"
+    },
+    {
+      "label": "import-origin",
+      "command": [
+        "/tmp/magna-final-check-20261017/wheel-env/bin/python",
+        "-I",
+        "-c",
+        "import hashlib,json,magna,magna._native; from pathlib import Path; assert '/magna-final-check-20261017/wheel-env/' in magna.__file__; print(json.dumps(dict(package=magna.__file__, native=magna._native.__file__, binary_sha256=hashlib.sha256(Path(magna._native.__file__).read_bytes()).hexdigest())))"
+      ],
+      "started_at": "2026-10-17T06:29:53.007982+00:00",
+      "finished_at": "2026-10-17T06:29:53.193995+00:00",
+      "exit_code": 0,
+      "output": "{\"package\": \"/tmp/magna-final-check-20261017/wheel-env/lib/python3.10/site-packages/magna/__init__.py\", \"native\": \"/tmp/magna-final-check-20261017/wheel-env/lib/python3.10/site-packages/magna/_native.cpython-310-x86_64-linux-gnu.so\", \"binary_sha256\": \"3da9d3967ca77c8058e292dc7401e083b2a82503076f583c84c94e4abe7746fa\"}\n"
+    }
+  ],
+  "wheel_build_log": "Looking in indexes: https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple\nProcessing /tmp/magna-final-check-20261017/source\n  Preparing metadata (pyproject.toml): started\n  Preparing metadata (pyproject.toml): finished with status 'done'\nBuilding wheels for collected packages: magna-quantum\n  Building wheel for magna-quantum (pyproject.toml): started\n  Building wheel for magna-quantum (pyproject.toml): still running...\n  Building wheel for magna-quantum (pyproject.toml): still running...\n  Building wheel for magna-quantum (pyproject.toml): finished with status 'done'\n  Created wheel for magna-quantum: filename=magna_quantum-0.1.0-cp310-cp310-linux_x86_64.whl size=18299386 sha256=7388f0ee068dd534fe260ffd561f8581bc3a65104580f960c40de4d44c703780\n  Stored in directory: /tmp/pip-ephem-wheel-cache-4mna1hzm/wheels/95/8c/11/48adafe67ef5104ac59d22f8ecb353ad9be74ef35bbc532c49\nSuccessfully built magna-quantum\n",
+  "initial_fixture_failure": "test_getting_started_python_examples (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_importance_sampling_guide_and_installed_cli (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_installed_conditional_noise_fixed_reference_networks (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_installed_console_commands_and_seed_reproducibility (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_installed_external_decoder_binding (test_installed_interface.InstalledInterfaceTests) ... FAIL\ntest_installed_history_progress_and_pilot (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_installed_low_weight_enumeration (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_installed_nonlinear_postselection_api_and_console (test_installed_interface.InstalledInterfaceTests) ... FAIL\ntest_installed_record_success_entry (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_portable_directory_with_local_decoder_and_universal_runner (test_installed_interface.InstalledInterfaceTests) ... ok\ntest_three_file_evaluation_with_installed_native_engine (test_installed_interface.InstalledInterfaceTests) ... FAIL\ntest_wheel_global_query_and_legacy_api_without_protocol_paths (test_installed_interface.InstalledInterfaceTests) ... ok\n\n======================================================================\nFAIL: test_installed_external_decoder_binding (test_installed_interface.InstalledInterfaceTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/magna-final-check-20261017/source/tests/core/test_installed_interface.py\", line 171, in test_installed_external_decoder_binding\n    self.python('''\n  File \"/tmp/magna-final-check-20261017/source/tests/core/test_installed_interface.py\", line 86, in python\n    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)\nAssertionError: 1 != 0 : Traceback (most recent call last):\n  File \"/tmp/magna-final-check-20261017/wheel-env/lib/python3.10/site-packages/magna/file_api.py\", line 70, in load_controllers\n    callback = getattr(importlib.import_module(module), function)\n  File \"/usr/lib/python3.10/importlib/__init__.py\", line 126, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n  File \"<frozen importlib._bootstrap>\", line 1050, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1027, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1004, in _find_and_load_unlocked\nModuleNotFoundError: No module named 'magna_example_decoders'\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"<string>\", line 5, in <module>\n  File \"/tmp/magna-final-check-20261017/wheel-env/lib/python3.10/site-packages/magna/file_api.py\", line 72, in load_controllers\n    raise ValueError(f'controller binding {name!r} cannot import {spec[\"import\"]!r}: {exc}') from exc\nValueError: controller binding 'majority' cannot import 'magna_example_decoders:majority': No module named 'magna_example_decoders'\n\n\n======================================================================\nFAIL: test_installed_nonlinear_postselection_api_and_console (test_installed_interface.InstalledInterfaceTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/magna-final-check-20261017/source/tests/core/test_installed_interface.py\", line 187, in test_installed_nonlinear_postselection_api_and_console\n    self.python('''\n  File \"/tmp/magna-final-check-20261017/source/tests/core/test_installed_interface.py\", line 86, in python\n    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)\nAssertionError: 1 != 0 : Traceback (most recent call last):\n  File \"/tmp/magna-final-check-20261017/wheel-env/lib/python3.10/site-packages/magna/file_api.py\", line 70, in load_controllers\n    callback = getattr(importlib.import_module(module), function)\n  File \"/usr/lib/python3.10/importlib/__init__.py\", line 126, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n  File \"<frozen importlib._bootstrap>\", line 1050, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1027, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1004, in _find_and_load_unlocked\nModuleNotFoundError: No module named 'magna_example_decoders'\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"<string>\", line 3, in <module>\n  File \"/tmp/magna-final-check-20261017/wheel-env/lib/python3.10/site-packages/magna/file_api.py\", line 72, in load_controllers\n    raise ValueError(f'controller binding {name!r} cannot import {spec[\"import\"]!r}: {exc}') from exc\nValueError: controller binding 'majority' cannot import 'magna_example_decoders:majority': No module named 'magna_example_decoders'\n\n\n======================================================================\nFAIL: test_three_file_evaluation_with_installed_native_engine (test_installed_interface.InstalledInterfaceTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/magna-final-check-20261017/source/tests/core/test_installed_interface.py\", line 245, in test_three_file_evaluation_with_installed_native_engine\n    self.python('''\n  File \"/tmp/magna-final-check-20261017/source/tests/core/test_installed_interface.py\", line 86, in python\n    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)\nAssertionError: 1 != 0 : Traceback (most recent call last):\n  File \"/tmp/magna-final-check-20261017/wheel-env/lib/python3.10/site-packages/magna/file_api.py\", line 70, in load_controllers\n    callback = getattr(importlib.import_module(module), function)\n  File \"/usr/lib/python3.10/importlib/__init__.py\", line 126, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n  File \"<frozen importlib._bootstrap>\", line 1050, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1027, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1004, in _find_and_load_unlocked\nModuleNotFoundError: No module named 'magna_example_decoders'\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"<string>\", line 13, in <module>\n  File \"/tmp/magna-final-check-20261017/wheel-env/lib/python3.10/site-packages/magna/file_api.py\", line 72, in load_controllers\n    raise ValueError(f'controller binding {name!r} cannot import {spec[\"import\"]!r}: {exc}') from exc\nValueError: controller binding 'repetition' cannot import 'magna_example_decoders:syndrome_recovery': No module named 'magna_example_decoders'\n\n\n----------------------------------------------------------------------\nRan 12 tests in 2.035s\n\nFAILED (failures=3)\n",
+  "installed_payload_sha256": {
+    "magna/__init__.py": "ec9e2f5ca5079450d0c79e0aae9fd5feb1ac1896e24f81bdd43d77124f7b5ac5",
+    "magna/_native.cpython-310-x86_64-linux-gnu.so": "3da9d3967ca77c8058e292dc7401e083b2a82503076f583c84c94e4abe7746fa",
+    "magna/batch.py": "ff6a99922c3896345d5256105d62e5879b95ccdf2c0fce50b0acb740b42ea845",
+    "magna/boundary_sampling.py": "aebe3fe774a8cfb585ff8e33b56144d91fcb91082586906765d580f9c730500c",
+    "magna/circuit_file.py": "ee02971117ff399faa33be9ae98200686ccd209de990022ba977d134c052e92d",
+    "magna/control_metadata.py": "173d4865d92a4739505c64e18d25955ff5986dcd7b340dfce151c36523fab3e3",
+    "magna/deferred_feedback.py": "ab5fa1cb433eba38940f7cc44c2ac691cb33d74670287489d664801ea14f01ff",
+    "magna/evaluate.py": "1510c007b2a8cc3ca875622844ff9b09fb1f3e933f847c636b31d928ab32d4d5",
+    "magna/feedback.py": "33bf2e0f849214efeff3851c03f895389d194016b00f657c7af01f9945084f94",
+    "magna/file_api.py": "7036939c200fb08127e919a7e845acda14da1ccfff3651d0e424a0a028ba8285",
+    "magna/gf2.py": "49ed8842fb9230a63b2efc415f9963d8a5c603748d66a6a6a65952f771d47bca",
+    "magna/ideal_state.py": "69d3aebd2c5d7a7d7ead498529d10e68b4af10026f8ed7fbee1230502ab716f6",
+    "magna/ir.py": "7faf4d1b00f9296a81f368db6adad9f956caf17e8d5dd561303b9f8fb243e6d8",
+    "magna/low_weight.py": "5dd193ab0a2186415ab8003c62bb58de662a935e0bde21a6b33a2ffd78b4a4e9",
+    "magna/native.py": "09ec8f5c69d3910f91b665e0a743dc334b97923866269495a511aec4b0bf7666",
+    "magna/native_compiler.py": "f9499d11e206c0d907ea0ae3ecc053b3dd81a85c3261bc61ac8825b6d7a0d1bf",
+    "magna/native_feedback.py": "da5d165637c36a790264e4f28cb038672b2894e6773d9de5e61787091e4744aa",
+    "magna/native_file_runtime.py": "252236cc55d7f5d551bc6dd043dd9e4e8a43b707f79b865f02a6fa778eff2032",
+    "magna/native_global.py": "51b0594c339e4d3c3397bedea3f7a22f5bfadcb7d4e753361e3d33875bb1a4ea",
+    "magna/native_records.py": "4c1f51d4a5af972edfbdbc12766900c30c24f3c076b3cb02fa698f089ac12eb3",
+    "magna/noise.py": "b8e03dab95a2a5e19fb90645943586406184dea462753e4a165b4ce4484ae457",
+    "magna/normal.py": "8aa35179bb9cfb7d8d9fc0adb727172d240e24259741f63960539f7819763b4c",
+    "magna/operations.py": "540d1f8d121a68987a3768c9d0426156486eb1c85dfc05970b56ee63499b5ada",
+    "magna/phase_tensor.py": "eb139057008ad807afdd886ac57fffd371d59ac39eb9642acec0de3e5389e7e7",
+    "magna/sampler_decision.py": "afdfe9d0f740a1b0dc837d39a88882eb8489d7ef12cdd5ae2098859b0d5953ef",
+    "magna/scalar.py": "f6f9b25bd20e448edfe1e1a1bf0cf02561ce39944b61b6378079d2a2e78b9fd7",
+    "magna/simulator.py": "b6f49aba41e3d444b845e2126f22d17ed5690a97e9093dc1817af5ca519ed6fc",
+    "magna/single_trace.py": "fca1ea34c72e3a6cebb4994bad57aeb6c76de8d7b734ffeba1dc2548d09a18de",
+    "magna/stabilizer.py": "d94fa0d05ac8fe8b43d0a859c13259aecbdd2b58269d22f594caa4ce9711adf0",
+    "magna/terminal_recovery.py": "25220bc228365caed72371dd671b1a8e2c8da69d86dc8bf28931f8db9c2fa2d7",
+    "magna/data/phase_decompositions.json": "81b0487232c624b202c1ecd53123980ec29ada377599395c0c18f92d98ccac76"
+  },
+  "matched_benchmark_production_inputs": 128,
+  "documentation_checks": [
+    {
+      "label": "docs",
+      "command": [
+        "/tmp/magna-parallel-20261016-1252/wheel-env/bin/python",
+        "scripts/project_docs.py",
+        "check"
+      ],
+      "started_at": "2026-10-17T06:35:14.021377+00:00",
+      "finished_at": "2026-10-17T06:35:14.092331+00:00",
+      "exit_code": 0,
+      "output": "35 documents: language policy, local links, repository paths and equation formatting checked\n"
+    },
+    {
+      "label": "mkdocs",
+      "command": [
+        "/tmp/magna-parallel-20261016-1252/wheel-env/bin/python",
+        "-m",
+        "mkdocs",
+        "build",
+        "--strict"
+      ],
+      "started_at": "2026-10-17T06:35:14.092603+00:00",
+      "finished_at": "2026-10-17T06:35:14.934287+00:00",
+      "exit_code": 0,
+      "output": "INFO    -  Cleaning site directory\nINFO    -  Building documentation to directory: /tmp/magna-final-check-20261017/source/build/software-docs\nINFO    -  Documentation built in 0.50 seconds\n"
+    }
+  ],
+  "report_file_sha256": {
+    "README.md": "41829d1eb9e8a18e124c1e6960f8da96c0fab015c7cae1aa2c8723293ffd2a0b",
+    "docs/development/parallel-sampling-merge-summary.md": "83ef3d2ca96b4decf41319ba4a1d8c1e2a9152e43527e126cfd965e16f35787e",
+    "docs/development/decoder-callback-benchmark.md": "623baf20aadbf9b82bfac7fe2d68a8c9d962c49e0ca4841908e270dc96983b15",
+    "docs/development/parallel-sampling-final-review.md": "8cf5b9ef9e40884c257837b13504239285d522271afb90dc9d86bf5e1ecad135",
+    "docs/development/benchmark-results/parallel-sampling-merge-current-20261017.json": "9777e766654bcaec9e7a6c6a916b8b955a7e5909cc366f12d631d8518eae1ffa",
+    "docs/development/benchmark-results/parallel-sampling-speedup-current-20261017.png": "f7fdedd6d948690a93eda4ffbabb30067612b12ac156d361a1483c2bcf66231b"
+  },
+  "report_hash_convention": "Normalize CRLF to LF for text files; hash PNG bytes unchanged."
+}

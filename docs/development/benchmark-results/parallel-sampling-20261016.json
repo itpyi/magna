@@ -1,0 +1,4082 @@
+{
+  "date": "2026-10-16",
+  "host": "ghz",
+  "cpu_model": "Intel Xeon Platinum 8358P",
+  "sockets": 2,
+  "physical_cores": 64,
+  "logical_cpus": 128,
+  "memory_gib": 503,
+  "main_commit": "56847478c840395735146ef1e1ccdc3d8aedc10f",
+  "baseline_adjustments": [
+    "Include <optional> in native/compile/plan.hpp",
+    "Include <limits> in native/foundation/causal_knowledge.hpp"
+  ],
+  "draw_fields": [
+    "status",
+    "requested",
+    "completed",
+    "failed",
+    "not_attempted",
+    "failures",
+    "estimates",
+    "standard_errors",
+    "estimates_scientific",
+    "standard_errors_scientific",
+    "weights",
+    "efficiency",
+    "sampled_records",
+    "sampling",
+    "history_sampler",
+    "fingerprints",
+    "route",
+    "numerics"
+  ],
+  "portable_digest_note": "Only fingerprints.ideal_state is omitted: circuit to_dict includes absolute source paths, which differ across isolated checkouts. Paired comparisons use identical task paths and compare every field.",
+  "builds": {
+    "baseline": {
+      "compiler": "g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0\nCopyright (C) 2021 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+      "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+      "platform": "Linux-5.15.0-187-generic-x86_64-with-glibc2.35",
+      "binary_sha256": "a19f3aaaf79151d3af858397d907e434892bb09d06c3211d2aa97397de8f206b"
+    },
+    "candidate": {
+      "compiler": "g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0\nCopyright (C) 2021 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+      "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+      "platform": "Linux-5.15.0-187-generic-x86_64-with-glibc2.35",
+      "binary_sha256": "6f1eefd9429b7d012b9911f61b31b9984cb8bf4064e9151075d0c2a9ce1b8a0d"
+    }
+  },
+  "datasets": {
+    "baseline-large": {
+      "label": "main-56847478",
+      "source_sha256": "82921ffb43c6ef7e61a082765c73de589308b83b3cfabbb6bfe1d2091893b995",
+      "environment": {
+        "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+        "platform": "Linux-5.15.0-187-generic-x86_64-with-glibc2.35",
+        "machine": "x86_64",
+        "processor": "x86_64",
+        "logical_cpus": 128,
+        "affinity_cpus": 128
+      },
+      "workers": [
+        1
+      ],
+      "repeats": 3,
+      "summary": [
+        {
+          "task": "bh2-T",
+          "shots": 262144,
+          "workers": 1,
+          "wall_seconds": 5.0491927191615105,
+          "total_seconds": 4.966727368533611,
+          "preparation_seconds": 0.009554455056786537,
+          "sampling_seconds": 4.949300306849182,
+          "wall_speedup": 1.0,
+          "sampling_speedup": 1.0,
+          "shots_per_sampling_second": 52965.87067816983
+        },
+        {
+          "task": "bh20-T",
+          "shots": 262144,
+          "workers": 1,
+          "wall_seconds": 8.483632664196193,
+          "total_seconds": 8.383973595686257,
+          "preparation_seconds": 0.056850175373256207,
+          "sampling_seconds": 8.298616186715662,
+          "wall_speedup": 1.0,
+          "sampling_speedup": 1.0,
+          "shots_per_sampling_second": 31588.881097988044
+        },
+        {
+          "task": "rp2-d3",
+          "shots": 262144,
+          "workers": 1,
+          "wall_seconds": 5.282398706302047,
+          "total_seconds": 5.1700633727014065,
+          "preparation_seconds": 0.0134342135861516,
+          "sampling_seconds": 5.137415949255228,
+          "wall_speedup": 1.0,
+          "sampling_speedup": 1.0,
+          "shots_per_sampling_second": 51026.430911828946
+        },
+        {
+          "task": "wg-T",
+          "shots": 262144,
+          "workers": 1,
+          "wall_seconds": 3.9045178527012467,
+          "total_seconds": 3.8301036190241575,
+          "preparation_seconds": 0.02084972057491541,
+          "sampling_seconds": 3.7847119281068444,
+          "wall_speedup": 1.0,
+          "sampling_speedup": 1.0,
+          "shots_per_sampling_second": 69263.92417166804
+        }
+      ],
+      "runs": [
+        {
+          "task": "bh2-T",
+          "workers": 1,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 8.57544167432934,
+          "load_before": [
+            90.60498046875,
+            88.85009765625,
+            87.173828125
+          ],
+          "load_after": [
+            91.89599609375,
+            89.18505859375,
+            87.30126953125
+          ],
+          "timings": {
+            "total_seconds": 8.463576985523105,
+            "compile_seconds": 0.01208218,
+            "preparation_seconds": 0.014997752383351326,
+            "sampling_seconds": 8.436687530949712,
+            "query_seconds": 3.6188074299999324,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9860725402832031,
+            "error": 3.814697265625e-06,
+            "conditional_error": 3.8685767119419095e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00022888706767498716,
+            "error": 3.814697265625e-06,
+            "conditional_error": 3.868576607723125e-06,
+            "moments": []
+          },
+          "draw_sha256": "5700db8cec28a8393a902ec9ad930e41c9442a069c72845352ec50616eb47ccb",
+          "portable_draw_sha256": "5f572a6977c73b2854cb514aa8d50304127631572a5f32d714d34200d1483ce4"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 1,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 4.2046234561130404,
+          "load_before": [
+            91.89599609375,
+            89.18505859375,
+            87.30126953125
+          ],
+          "load_after": [
+            90.3828125,
+            88.916015625,
+            87.22412109375
+          ],
+          "timings": {
+            "total_seconds": 4.134906316176057,
+            "compile_seconds": 0.006396188000000001,
+            "preparation_seconds": 0.0077339233830571175,
+            "sampling_seconds": 4.120592582039535,
+            "query_seconds": 1.6055662850000996,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9856376647949219,
+            "error": 1.52587890625e-05,
+            "conditional_error": 1.548113430271036e-05,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00023238176299924797,
+            "error": 7.629350875212879e-06,
+            "conditional_error": 7.740521998631591e-06,
+            "moments": []
+          },
+          "draw_sha256": "4416bcdff1b2896b67e57baa07c1fd06a57068e9cb3b8efeabbfc8901127a5d0",
+          "portable_draw_sha256": "c90f8221ddc8c1fb9068f08f4eb815b8f09ebb27d4c0c9d6484b8477aeddf93b"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 1,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 5.0491927191615105,
+          "load_before": [
+            90.3828125,
+            88.916015625,
+            87.22412109375
+          ],
+          "load_after": [
+            88.43017578125,
+            88.53515625,
+            87.10986328125
+          ],
+          "timings": {
+            "total_seconds": 4.966727368533611,
+            "compile_seconds": 0.007737906,
+            "preparation_seconds": 0.009554455056786537,
+            "sampling_seconds": 4.949300306849182,
+            "query_seconds": 2.0251769900001335,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9860763549804688,
+            "error": 1.1444091796875e-05,
+            "conditional_error": 1.160568523834209e-05,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0002288561623958936,
+            "error": 6.607224274755823e-06,
+            "conditional_error": 6.700519394401773e-06,
+            "moments": []
+          },
+          "draw_sha256": "6112662392f84bc203f5295a7a56722585b685a9d9ba44c1e8b0e91059a9f411",
+          "portable_draw_sha256": "9363b741a581b9b235da86bbd435c930284d578a57468cecf69c78945c6b0026"
+        },
+        {
+          "task": "bh20-T",
+          "workers": 1,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 7.843463180586696,
+          "load_before": [
+            88.43017578125,
+            88.53515625,
+            87.10986328125
+          ],
+          "load_after": [
+            89.11669921875,
+            88.67578125,
+            87.1630859375
+          ],
+          "timings": {
+            "total_seconds": 7.741651296615601,
+            "compile_seconds": 0.042295435,
+            "preparation_seconds": 0.0516783706843853,
+            "sampling_seconds": 7.662622403353453,
+            "query_seconds": 4.843392861999921,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9353256225585938,
+            "error": 0.000522613525390625,
+            "conditional_error": 0.0005587503568661038,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0004803728034837683,
+            "error": 4.4638303043138e-05,
+            "conditional_error": 4.772401717018003e-05,
+            "moments": []
+          },
+          "draw_sha256": "07047793ac4e51afb527e24a85d8d370a87235fe17ec69760eeb1c240c5c8192",
+          "portable_draw_sha256": "2113c181eac1517da684fd25dd458515d5c8262fdc1da15c1f2f5f23188e5c31"
+        },
+        {
+          "task": "bh20-T",
+          "workers": 1,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 8.483632664196193,
+          "load_before": [
+            89.11669921875,
+            88.67578125,
+            87.1630859375
+          ],
+          "load_after": [
+            90.3291015625,
+            88.95068359375,
+            87.26904296875
+          ],
+          "timings": {
+            "total_seconds": 8.383973595686257,
+            "compile_seconds": 0.046425063,
+            "preparation_seconds": 0.056850175373256207,
+            "sampling_seconds": 8.298616186715662,
+            "query_seconds": 5.283245086000171,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9340744018554688,
+            "error": 0.00060272216796875,
+            "conditional_error": 0.0006452614125507429,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00048467279373390896,
+            "error": 4.7935640093896995e-05,
+            "conditional_error": 5.131777490098571e-05,
+            "moments": []
+          },
+          "draw_sha256": "ea894694a889007a5d664c4586cf76f0beed6f6e1b24f1d739671e4c04b33e54",
+          "portable_draw_sha256": "bdd421aa005ac6ecc94b89de2eae09ecd71014f211ba956ff6597e30ba0d23b2"
+        },
+        {
+          "task": "bh20-T",
+          "workers": 1,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 14.138236342929304,
+          "load_before": [
+            90.3291015625,
+            88.95068359375,
+            87.26904296875
+          ],
+          "load_after": [
+            89.978515625,
+            88.9375,
+            87.2919921875
+          ],
+          "timings": {
+            "total_seconds": 14.009247080422938,
+            "compile_seconds": 0.077282962,
+            "preparation_seconds": 0.09735608287155628,
+            "sampling_seconds": 13.861224203370512,
+            "query_seconds": 9.445253804999886,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9351997375488281,
+            "error": 0.00048828125,
+            "conditional_error": 0.0005221144001598976,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00048080772632375074,
+            "error": 4.314791717469323e-05,
+            "conditional_error": 4.6136868055635165e-05,
+            "moments": []
+          },
+          "draw_sha256": "41a6fa4aaf7d4b14b3d554bf1c27cf27d840bda264a09736170d3421e4ff9e1e",
+          "portable_draw_sha256": "917a2b290fa0b82224f891d10b7225bbc02826ad9ff966776eda4f512b378199"
+        },
+        {
+          "task": "rp2-d3",
+          "workers": 1,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 5.334128719754517,
+          "load_before": [
+            89.978515625,
+            88.9375,
+            87.2919921875
+          ],
+          "load_after": [
+            88.13818359375,
+            88.5732421875,
+            87.1826171875
+          ],
+          "timings": {
+            "total_seconds": 5.244311381131411,
+            "compile_seconds": 0.006201494,
+            "preparation_seconds": 0.007496710866689682,
+            "sampling_seconds": 5.226132388226688,
+            "query_seconds": 1.6487200860000037,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5130953788757324,
+            "error": 9.5367431640625e-07,
+            "conditional_error": 1.858668691376428e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.000975441458750747,
+            "error": 9.5367431640625e-07,
+            "conditional_error": 1.8586756857402467e-06,
+            "moments": []
+          },
+          "draw_sha256": "25544eb015813314dc409d69c2ad3a993fc19582bf9050024911663765d71d15",
+          "portable_draw_sha256": "67289de674d1756b869e81d988373fa24caa4032475962e5ba2fc2644e51c154"
+        },
+        {
+          "task": "rp2-d3",
+          "workers": 1,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 5.282398706302047,
+          "load_before": [
+            88.13818359375,
+            88.5732421875,
+            87.1826171875
+          ],
+          "load_after": [
+            88.92822265625,
+            88.72998046875,
+            87.24072265625
+          ],
+          "timings": {
+            "total_seconds": 5.1700633727014065,
+            "compile_seconds": 0.010831308,
+            "preparation_seconds": 0.0134342135861516,
+            "sampling_seconds": 5.137415949255228,
+            "query_seconds": 1.6151741910000283,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5140204429626465,
+            "error": 1.1920928955078125e-06,
+            "conditional_error": 2.3191546403037536e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009753471845350898,
+            "error": 9.830241024021957e-07,
+            "conditional_error": 1.9124332875205223e-06,
+            "moments": []
+          },
+          "draw_sha256": "1b370cf3621aac6a16686f8d2f8b23571541bda5eb6bac785c732b2b5dcb7405",
+          "portable_draw_sha256": "3c893f0cd8ff79a81c22b2de3ca8be197210e9f8aa16696acb9e4b63e3593abe"
+        },
+        {
+          "task": "rp2-d3",
+          "workers": 1,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 4.450245106592774,
+          "load_before": [
+            88.92822265625,
+            88.72998046875,
+            87.24072265625
+          ],
+          "load_after": [
+            87.412109375,
+            88.4189453125,
+            87.14794921875
+          ],
+          "timings": {
+            "total_seconds": 4.338137607090175,
+            "compile_seconds": 0.011070072999999998,
+            "preparation_seconds": 0.01377976406365633,
+            "sampling_seconds": 4.3054021168500185,
+            "query_seconds": 1.3303844260000144,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.515887975692749,
+            "error": 7.152557373046875e-07,
+            "conditional_error": 1.3864555310563727e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009753142158476325,
+            "error": 5.331193364894893e-07,
+            "conditional_error": 1.033408916058717e-06,
+            "moments": []
+          },
+          "draw_sha256": "a170964ca931d50a624c4834e9c7d1f9116f10bc66a274d1bc96b13004a99822",
+          "portable_draw_sha256": "1cbea15c6767007d31f63ec62640d500ffeefba97390b37321bb0f8595d85716"
+        },
+        {
+          "task": "wg-T",
+          "workers": 1,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 3.9045178527012467,
+          "load_before": [
+            87.412109375,
+            88.4189453125,
+            87.14794921875
+          ],
+          "load_after": [
+            86.09765625,
+            88.12939453125,
+            87.06103515625
+          ],
+          "timings": {
+            "total_seconds": 3.8301036190241575,
+            "compile_seconds": 0.016796804000000002,
+            "preparation_seconds": 0.02084972057491541,
+            "sampling_seconds": 3.7847119281068444,
+            "query_seconds": 1.2715153599999451,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5488338470458984,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009708037346395248,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "d0c3d41e12984c604654953a7538c24bd228c51cc53c9ec492e227caccfc98fa",
+          "portable_draw_sha256": "aa95cb12b14171a2bb28a57ac56197f364b1939eb0660fbc83b027c07a13388a"
+        },
+        {
+          "task": "wg-T",
+          "workers": 1,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 3.893490744754672,
+          "load_before": [
+            86.09765625,
+            88.12939453125,
+            87.06103515625
+          ],
+          "load_after": [
+            86.09765625,
+            88.12939453125,
+            87.06103515625
+          ],
+          "timings": {
+            "total_seconds": 3.8211540142074227,
+            "compile_seconds": 0.017150516,
+            "preparation_seconds": 0.02123168297111988,
+            "sampling_seconds": 3.776043577119708,
+            "query_seconds": 1.2645644349999174,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5495548248291016,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009707842819838256,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "70648adeb759f3fe3bd8158dacdc48a39323cb3d782f4f41f46ecdd84a809927",
+          "portable_draw_sha256": "35a5cd3718cef8836c574616fecb0f7023ced7b15e530d1037ace45a3388bb87"
+        },
+        {
+          "task": "wg-T",
+          "workers": 1,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 4.84420430008322,
+          "load_before": [
+            86.09765625,
+            88.12939453125,
+            87.06103515625
+          ],
+          "load_after": [
+            84.48779296875,
+            87.76171875,
+            86.94775390625
+          ],
+          "timings": {
+            "total_seconds": 4.749010520987213,
+            "compile_seconds": 0.016596977999999995,
+            "preparation_seconds": 0.020551735535264015,
+            "sampling_seconds": 4.70436173863709,
+            "query_seconds": 1.6242820789999521,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5525531768798828,
+            "error": 3.814697265625e-06,
+            "conditional_error": 6.9037649682254216e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009701225749747035,
+            "error": 3.814697265625e-06,
+            "conditional_error": 6.903754282414578e-06,
+            "moments": []
+          },
+          "draw_sha256": "a473d553e61a2a57ca2c7fa001933a5682df9c1fd47aacffbf44ad92776a8b73",
+          "portable_draw_sha256": "febc250db9820165e72c74877d4d0f92357347f880795767259f1d7e5833e1e2"
+        }
+      ],
+      "task_fingerprints": {
+        "bh2-T": {
+          "circuit": "0493594c139cf2e6aad28a1ae80d3d8e9f00141972d5bc5893e8e0d1dd5c458b",
+          "task": "6c3374953a77b3eb61179d1c8562334a748e61646c750d7508cd0f9d494c02ee",
+          "controllers": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "options": "cb1c6630381e6828f8dd8acb36ab25efe3c37b54cb1ea9982f9d6feb3c3dcfa2",
+          "ideal_state": "b3f8ec44c0ec5109cfbe81177cb1a640684228c9599a7fca7739fe1c289c5807",
+          "recovery": null,
+          "sampling": "d2b32c94c6b0270beb8ef4cf5dec207b1ad0b9eacc3756f3caf050e7adbabcb0"
+        },
+        "bh20-T": {
+          "circuit": "2d7de35a295e27d9b9e6b94506ee75b69322790981fa2385e6b64f52c23cde09",
+          "task": "b48c111f8b4cd827677a609885babb2617d64855258eaa8ba54d665927195ae7",
+          "controllers": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "options": "cb1c6630381e6828f8dd8acb36ab25efe3c37b54cb1ea9982f9d6feb3c3dcfa2",
+          "ideal_state": "68218ddefe6f07f3afdc03581832bc2e262c7fd8be8a37d4d83d4e1c937a106d",
+          "recovery": null,
+          "sampling": "d2b32c94c6b0270beb8ef4cf5dec207b1ad0b9eacc3756f3caf050e7adbabcb0"
+        },
+        "rp2-d3": {
+          "circuit": "cb79771cf20644f534727e3fbed7f1848d93e68243bc99e35fc926d62f240bd9",
+          "task": "d40b2dd3ebaea170b8f878f33ca5f14476525ea17857277dccbb2c71d9553b3e",
+          "controllers": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "options": "cb1c6630381e6828f8dd8acb36ab25efe3c37b54cb1ea9982f9d6feb3c3dcfa2",
+          "ideal_state": "aa00d0d057df45147f9468288401546f9bd4b324eacee20c65d5251d3b681d0e",
+          "recovery": null,
+          "sampling": "d2b32c94c6b0270beb8ef4cf5dec207b1ad0b9eacc3756f3caf050e7adbabcb0"
+        },
+        "wg-T": {
+          "circuit": "64a0221a0adca478482391abbe81aa7872c489311bd923fdeeac193f1f177cec",
+          "task": "af93cfc5e4f73e3f284c00b862fe41049c92fc4d1cf35c2ec20e85d10b915ead",
+          "controllers": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "options": "cb1c6630381e6828f8dd8acb36ab25efe3c37b54cb1ea9982f9d6feb3c3dcfa2",
+          "ideal_state": "b21053a80ff9a942af656807b2e6a2a7169c78a4f3e79f895b903b1cdf7a90d5",
+          "recovery": null,
+          "sampling": "d2b32c94c6b0270beb8ef4cf5dec207b1ad0b9eacc3756f3caf050e7adbabcb0"
+        }
+      }
+    },
+    "candidate-large": {
+      "label": "feat-parallel-sampling",
+      "source_sha256": "2b375bd5bc2f627ef0e362db1bec0052b581126df6dc386029c8239c2712df54",
+      "environment": {
+        "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+        "platform": "Linux-5.15.0-187-generic-x86_64-with-glibc2.35",
+        "machine": "x86_64",
+        "processor": "x86_64",
+        "logical_cpus": 128,
+        "affinity_cpus": 128
+      },
+      "workers": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "repeats": 3,
+      "summary": [
+        {
+          "task": "bh2-T",
+          "shots": 262144,
+          "workers": 1,
+          "wall_seconds": 7.241042727604508,
+          "total_seconds": 7.16637706477195,
+          "preparation_seconds": 0.013101056218147278,
+          "sampling_seconds": 7.152050270698965,
+          "wall_speedup": 1.0,
+          "sampling_speedup": 1.0,
+          "shots_per_sampling_second": 36652.9862176683
+        },
+        {
+          "task": "bh2-T",
+          "shots": 262144,
+          "workers": 2,
+          "wall_seconds": 4.075181443244219,
+          "total_seconds": 3.9963953122496605,
+          "preparation_seconds": 0.007368297316133976,
+          "sampling_seconds": 3.982600459828973,
+          "wall_speedup": 1.7768638840875692,
+          "sampling_speedup": 1.7958241964864583,
+          "shots_per_sampling_second": 65822.31952317341
+        },
+        {
+          "task": "bh2-T",
+          "shots": 262144,
+          "workers": 4,
+          "wall_seconds": 2.492433074861765,
+          "total_seconds": 2.386125554330647,
+          "preparation_seconds": 0.013163669966161251,
+          "sampling_seconds": 2.3617998231202364,
+          "wall_speedup": 2.9052104951729185,
+          "sampling_speedup": 3.0282203430984262,
+          "shots_per_sampling_second": 110993.3184996494
+        },
+        {
+          "task": "bh2-T",
+          "shots": 262144,
+          "workers": 8,
+          "wall_seconds": 1.6159282140433788,
+          "total_seconds": 1.500432607717812,
+          "preparation_seconds": 0.0073621151968836784,
+          "sampling_seconds": 1.475864665582776,
+          "wall_speedup": 4.481042328907642,
+          "sampling_speedup": 4.846006844316466,
+          "shots_per_sampling_second": 177620.62207545768
+        },
+        {
+          "task": "bh20-T",
+          "shots": 262144,
+          "workers": 1,
+          "wall_seconds": 10.01025990396738,
+          "total_seconds": 9.908146658912301,
+          "preparation_seconds": 0.09751000721007586,
+          "sampling_seconds": 9.761398016475141,
+          "wall_speedup": 1.0,
+          "sampling_speedup": 1.0,
+          "shots_per_sampling_second": 26855.16967524091
+        },
+        {
+          "task": "bh20-T",
+          "shots": 262144,
+          "workers": 2,
+          "wall_seconds": 8.422833292745054,
+          "total_seconds": 8.294991446658969,
+          "preparation_seconds": 0.09897567331790924,
+          "sampling_seconds": 8.145518284291029,
+          "wall_speedup": 1.18846705806105,
+          "sampling_speedup": 1.1983765398084494,
+          "shots_per_sampling_second": 32182.605311384006
+        },
+        {
+          "task": "bh20-T",
+          "shots": 262144,
+          "workers": 4,
+          "wall_seconds": 5.202097802422941,
+          "total_seconds": 5.079759218730032,
+          "preparation_seconds": 0.09980626869946718,
+          "sampling_seconds": 4.930626347661018,
+          "wall_speedup": 1.9242736842250407,
+          "sampling_speedup": 1.979748074218955,
+          "shots_per_sampling_second": 53166.47044738148
+        },
+        {
+          "task": "bh20-T",
+          "shots": 262144,
+          "workers": 8,
+          "wall_seconds": 3.0348855620250106,
+          "total_seconds": 2.86620403919369,
+          "preparation_seconds": 0.10573994554579258,
+          "sampling_seconds": 2.7052659317851067,
+          "wall_speedup": 3.298397814146274,
+          "sampling_speedup": 3.608295177854825,
+          "shots_per_sampling_second": 96901.37923964491
+        },
+        {
+          "task": "rp2-d3",
+          "shots": 262144,
+          "workers": 1,
+          "wall_seconds": 4.744010088965297,
+          "total_seconds": 4.665753132663667,
+          "preparation_seconds": 0.013448650948703289,
+          "sampling_seconds": 4.64701228775084,
+          "wall_speedup": 1.0,
+          "sampling_speedup": 1.0,
+          "shots_per_sampling_second": 56411.299081560646
+        },
+        {
+          "task": "rp2-d3",
+          "shots": 262144,
+          "workers": 2,
+          "wall_seconds": 3.2795759672299027,
+          "total_seconds": 3.205272391438484,
+          "preparation_seconds": 0.007756655104458332,
+          "sampling_seconds": 3.1873392583802342,
+          "wall_speedup": 1.4465315444338769,
+          "sampling_speedup": 1.457959730999076,
+          "shots_per_sampling_second": 82245.40243426057
+        },
+        {
+          "task": "rp2-d3",
+          "shots": 262144,
+          "workers": 4,
+          "wall_seconds": 2.1506190886721015,
+          "total_seconds": 2.053970172069967,
+          "preparation_seconds": 0.01280518714338541,
+          "sampling_seconds": 2.024683323688805,
+          "wall_speedup": 2.205881140901843,
+          "sampling_speedup": 2.2951798107786896,
+          "shots_per_sampling_second": 129474.07475179643
+        },
+        {
+          "task": "rp2-d3",
+          "shots": 262144,
+          "workers": 8,
+          "wall_seconds": 1.424551848322153,
+          "total_seconds": 1.311889206059277,
+          "preparation_seconds": 0.013390716165304184,
+          "sampling_seconds": 1.2811347879469395,
+          "wall_speedup": 3.330177202432347,
+          "sampling_speedup": 3.6272625889722576,
+          "shots_per_sampling_second": 204618.59475387
+        },
+        {
+          "task": "wg-T",
+          "shots": 262144,
+          "workers": 1,
+          "wall_seconds": 7.546211360022426,
+          "total_seconds": 7.430698404088616,
+          "preparation_seconds": 0.039870661683380604,
+          "sampling_seconds": 7.3406612584367394,
+          "wall_speedup": 1.0,
+          "sampling_speedup": 1.0,
+          "shots_per_sampling_second": 35711.22420323015
+        },
+        {
+          "task": "wg-T",
+          "shots": 262144,
+          "workers": 2,
+          "wall_seconds": 4.3187331929802895,
+          "total_seconds": 4.239891763776541,
+          "preparation_seconds": 0.021353251300752163,
+          "sampling_seconds": 4.194095939397812,
+          "wall_speedup": 1.7473205736089719,
+          "sampling_speedup": 1.7502368482993527,
+          "shots_per_sampling_second": 62503.1004983731
+        },
+        {
+          "task": "wg-T",
+          "shots": 262144,
+          "workers": 4,
+          "wall_seconds": 2.6972741512581706,
+          "total_seconds": 2.5920283207669854,
+          "preparation_seconds": 0.022977683693170547,
+          "sampling_seconds": 2.5418597953394055,
+          "wall_speedup": 2.797717598154574,
+          "sampling_speedup": 2.887909581754318,
+          "shots_per_sampling_second": 103130.78655268508
+        },
+        {
+          "task": "wg-T",
+          "shots": 262144,
+          "workers": 8,
+          "wall_seconds": 1.6940305940806866,
+          "total_seconds": 1.5991192059591413,
+          "preparation_seconds": 0.03291046712547541,
+          "sampling_seconds": 1.5494218552485108,
+          "wall_speedup": 4.454589773284225,
+          "sampling_speedup": 4.7376776270264855,
+          "shots_per_sampling_second": 169188.26794137023
+        }
+      ],
+      "runs": [
+        {
+          "task": "bh2-T",
+          "workers": 1,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 7.532969264313579,
+          "load_before": [
+            86.3359375,
+            87.45703125,
+            86.97412109375
+          ],
+          "load_after": [
+            86.20703125,
+            87.40576171875,
+            86.96337890625
+          ],
+          "timings": {
+            "total_seconds": 7.4268686370924115,
+            "compile_seconds": 0.010572096,
+            "preparation_seconds": 0.013101056218147278,
+            "sampling_seconds": 7.401828863658011,
+            "query_seconds": 3.182607633999812,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9860725402832031,
+            "error": 3.814697265625e-06,
+            "conditional_error": 3.8685767119419095e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00022888706767498716,
+            "error": 3.814697265625e-06,
+            "conditional_error": 3.868576607723125e-06,
+            "moments": []
+          },
+          "draw_sha256": "6c9374595d265ec7b13a1f56f12ce282dca3953ef26d965d4090b34b4f3d994c",
+          "portable_draw_sha256": "5f572a6977c73b2854cb514aa8d50304127631572a5f32d714d34200d1483ce4"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 2,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 4.390865451656282,
+          "load_before": [
+            86.20703125,
+            87.40576171875,
+            86.96337890625
+          ],
+          "load_after": [
+            87.47216796875,
+            87.6484375,
+            87.04443359375
+          ],
+          "timings": {
+            "total_seconds": 4.285635272040963,
+            "compile_seconds": 0.023489800999999998,
+            "preparation_seconds": 0.01464173849672079,
+            "sampling_seconds": 4.260466349311173,
+            "query_seconds": 3.0690445669999518,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9857139587402344,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00023177269504099312,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "8ddc2e6d54f4447ea2a0e91ae9e09d84a4d38794d602f58c626d9252b1347234",
+          "portable_draw_sha256": "0ae6fa276bebde406f8983a927bb50fcb0f2f0e52519426651930bc681e976a6"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 4,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 2.5001273658126593,
+          "load_before": [
+            87.47216796875,
+            87.6484375,
+            87.04443359375
+          ],
+          "load_after": [
+            87.47216796875,
+            87.6484375,
+            87.04443359375
+          ],
+          "timings": {
+            "total_seconds": 2.392304132692516,
+            "compile_seconds": 0.043013882,
+            "preparation_seconds": 0.012821543961763382,
+            "sampling_seconds": 2.3687527338042855,
+            "query_seconds": 3.120426405999978,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9857139587402344,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00023177269504099312,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "8ddc2e6d54f4447ea2a0e91ae9e09d84a4d38794d602f58c626d9252b1347234",
+          "portable_draw_sha256": "0ae6fa276bebde406f8983a927bb50fcb0f2f0e52519426651930bc681e976a6"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 8,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 1.6159282140433788,
+          "load_before": [
+            87.47216796875,
+            87.6484375,
+            87.04443359375
+          ],
+          "load_after": [
+            86.55322265625,
+            87.45458984375,
+            86.98486328125
+          ],
+          "timings": {
+            "total_seconds": 1.500432607717812,
+            "compile_seconds": 0.10252656800000001,
+            "preparation_seconds": 0.0133749321103096,
+            "sampling_seconds": 1.475864665582776,
+            "query_seconds": 3.2783638770000434,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9857139587402344,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00023177269504099312,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "8ddc2e6d54f4447ea2a0e91ae9e09d84a4d38794d602f58c626d9252b1347234",
+          "portable_draw_sha256": "0ae6fa276bebde406f8983a927bb50fcb0f2f0e52519426651930bc681e976a6"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 2,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 4.075181443244219,
+          "load_before": [
+            86.55322265625,
+            87.45458984375,
+            86.98486328125
+          ],
+          "load_after": [
+            86.55322265625,
+            87.45458984375,
+            86.98486328125
+          ],
+          "timings": {
+            "total_seconds": 3.9963953122496605,
+            "compile_seconds": 0.012355373,
+            "preparation_seconds": 0.007368297316133976,
+            "sampling_seconds": 3.982600459828973,
+            "query_seconds": 2.7814799699999586,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9857635498046875,
+            "error": 1.1444091796875e-05,
+            "conditional_error": 1.1609367986006841e-05,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00023137588964052138,
+            "error": 6.607224274755823e-06,
+            "conditional_error": 6.702645609132371e-06,
+            "moments": []
+          },
+          "draw_sha256": "02a6334c7e6d6707e5e25126a10ca89a200efb71e845b6fa4fca55dbedd430eb",
+          "portable_draw_sha256": "c909c3937d7fc14008b19f9f27767ec72fdd6546b72a4e5174769f46e54cbb2b"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 4,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 2.4897029092535377,
+          "load_before": [
+            86.55322265625,
+            87.45458984375,
+            86.98486328125
+          ],
+          "load_after": [
+            87.79052734375,
+            87.6962890625,
+            87.06591796875
+          ],
+          "timings": {
+            "total_seconds": 2.3794571915641427,
+            "compile_seconds": 0.04576996,
+            "preparation_seconds": 0.013163669966161251,
+            "sampling_seconds": 2.355411471799016,
+            "query_seconds": 3.033721565999956,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9857635498046875,
+            "error": 1.1444091796875e-05,
+            "conditional_error": 1.1609367986006841e-05,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00023137588964052138,
+            "error": 6.607224274755823e-06,
+            "conditional_error": 6.702645609132371e-06,
+            "moments": []
+          },
+          "draw_sha256": "02a6334c7e6d6707e5e25126a10ca89a200efb71e845b6fa4fca55dbedd430eb",
+          "portable_draw_sha256": "c909c3937d7fc14008b19f9f27767ec72fdd6546b72a4e5174769f46e54cbb2b"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 8,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 1.7240793649107218,
+          "load_before": [
+            87.79052734375,
+            87.6962890625,
+            87.06591796875
+          ],
+          "load_after": [
+            87.79052734375,
+            87.6962890625,
+            87.06591796875
+          ],
+          "timings": {
+            "total_seconds": 1.6326411087065935,
+            "compile_seconds": 0.09115508,
+            "preparation_seconds": 0.0073621151968836784,
+            "sampling_seconds": 1.6189976837486029,
+            "query_seconds": 3.441158153000014,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9857635498046875,
+            "error": 1.1444091796875e-05,
+            "conditional_error": 1.1609367986006841e-05,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00023137588964052138,
+            "error": 6.607224274755823e-06,
+            "conditional_error": 6.702645609132371e-06,
+            "moments": []
+          },
+          "draw_sha256": "02a6334c7e6d6707e5e25126a10ca89a200efb71e845b6fa4fca55dbedd430eb",
+          "portable_draw_sha256": "c909c3937d7fc14008b19f9f27767ec72fdd6546b72a4e5174769f46e54cbb2b"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 1,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 6.81360237672925,
+          "load_before": [
+            87.79052734375,
+            87.6962890625,
+            87.06591796875
+          ],
+          "load_after": [
+            85.1220703125,
+            87.12939453125,
+            86.88818359375
+          ],
+          "timings": {
+            "total_seconds": 6.703141902573407,
+            "compile_seconds": 0.010550637,
+            "preparation_seconds": 0.013108213432133198,
+            "sampling_seconds": 6.678094926290214,
+            "query_seconds": 2.820384166999807,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9856376647949219,
+            "error": 1.52587890625e-05,
+            "conditional_error": 1.548113430271036e-05,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00023238176299924797,
+            "error": 7.629350875212879e-06,
+            "conditional_error": 7.740521998631591e-06,
+            "moments": []
+          },
+          "draw_sha256": "11ea75315d73a2ba719fc808e1166d138cf5d7d4446a33b6a7a3246f6c4f2f28",
+          "portable_draw_sha256": "c90f8221ddc8c1fb9068f08f4eb815b8f09ebb27d4c0c9d6484b8477aeddf93b"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 4,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 2.492433074861765,
+          "load_before": [
+            85.1220703125,
+            87.12939453125,
+            86.88818359375
+          ],
+          "load_after": [
+            85.1220703125,
+            87.12939453125,
+            86.88818359375
+          ],
+          "timings": {
+            "total_seconds": 2.386125554330647,
+            "compile_seconds": 0.046258381,
+            "preparation_seconds": 0.013496498577296734,
+            "sampling_seconds": 2.3617998231202364,
+            "query_seconds": 2.9619757719999646,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9861068725585938,
+            "error": 7.62939453125e-06,
+            "conditional_error": 7.736884047318782e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00022860876101219127,
+            "error": 5.394786319587433e-06,
+            "conditional_error": 5.470792446305736e-06,
+            "moments": []
+          },
+          "draw_sha256": "dfbf17c2f0ff002ccd1d072e2b6dfd643ac61c5f5d29f7bb7714df1d3ad324f3",
+          "portable_draw_sha256": "c648d170fc6aea593cb290c48a7083731f5460d7c678df78641bce4ab2b307e5"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 8,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 1.411508427001536,
+          "load_before": [
+            85.1220703125,
+            87.12939453125,
+            86.88818359375
+          ],
+          "load_after": [
+            85.1220703125,
+            87.12939453125,
+            86.88818359375
+          ],
+          "timings": {
+            "total_seconds": 1.337656356394291,
+            "compile_seconds": 0.07635162499999999,
+            "preparation_seconds": 0.007066754624247551,
+            "sampling_seconds": 1.3247714880853891,
+            "query_seconds": 2.8588951430000282,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9861068725585938,
+            "error": 7.62939453125e-06,
+            "conditional_error": 7.736884047318782e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00022860876101219127,
+            "error": 5.394786319587433e-06,
+            "conditional_error": 5.470792446305736e-06,
+            "moments": []
+          },
+          "draw_sha256": "dfbf17c2f0ff002ccd1d072e2b6dfd643ac61c5f5d29f7bb7714df1d3ad324f3",
+          "portable_draw_sha256": "c648d170fc6aea593cb290c48a7083731f5460d7c678df78641bce4ab2b307e5"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 1,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 7.241042727604508,
+          "load_before": [
+            85.1220703125,
+            87.12939453125,
+            86.88818359375
+          ],
+          "load_after": [
+            85.16064453125,
+            87.087890625,
+            86.87841796875
+          ],
+          "timings": {
+            "total_seconds": 7.16637706477195,
+            "compile_seconds": 0.006017371,
+            "preparation_seconds": 0.0072737280279397964,
+            "sampling_seconds": 7.152050270698965,
+            "query_seconds": 3.027616812999976,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9860763549804688,
+            "error": 1.1444091796875e-05,
+            "conditional_error": 1.160568523834209e-05,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0002288561623958936,
+            "error": 6.607224274755823e-06,
+            "conditional_error": 6.700519394401773e-06,
+            "moments": []
+          },
+          "draw_sha256": "7db867c41dcff4eac205f7e63fdeef0ed4399dce8cf419e84fb9d60a831ccdd4",
+          "portable_draw_sha256": "9363b741a581b9b235da86bbd435c930284d578a57468cecf69c78945c6b0026"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 2,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 3.3180605890229344,
+          "load_before": [
+            85.16064453125,
+            87.087890625,
+            86.87841796875
+          ],
+          "load_after": [
+            85.16064453125,
+            87.087890625,
+            86.87841796875
+          ],
+          "timings": {
+            "total_seconds": 3.248458342626691,
+            "compile_seconds": 0.012353009,
+            "preparation_seconds": 0.007140008732676506,
+            "sampling_seconds": 3.2355331145226955,
+            "query_seconds": 1.8971069539999799,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9861068725585938,
+            "error": 7.62939453125e-06,
+            "conditional_error": 7.736884047318782e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00022860876101219127,
+            "error": 5.394786319587433e-06,
+            "conditional_error": 5.470792446305736e-06,
+            "moments": []
+          },
+          "draw_sha256": "dfbf17c2f0ff002ccd1d072e2b6dfd643ac61c5f5d29f7bb7714df1d3ad324f3",
+          "portable_draw_sha256": "c648d170fc6aea593cb290c48a7083731f5460d7c678df78641bce4ab2b307e5"
+        },
+        {
+          "task": "bh20-T",
+          "workers": 1,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 7.938661294057965,
+          "load_before": [
+            85.16064453125,
+            87.087890625,
+            86.87841796875
+          ],
+          "load_after": [
+            82.4482421875,
+            86.44287109375,
+            86.67041015625
+          ],
+          "timings": {
+            "total_seconds": 7.869583559222519,
+            "compile_seconds": 0.042453656000000006,
+            "preparation_seconds": 0.05213506054133177,
+            "sampling_seconds": 7.790464125573635,
+            "query_seconds": 4.844644867999989,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9353256225585938,
+            "error": 0.000522613525390625,
+            "conditional_error": 0.0005587503568661038,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0004803728034837683,
+            "error": 4.4638303043138e-05,
+            "conditional_error": 4.772401717018003e-05,
+            "moments": []
+          },
+          "draw_sha256": "12dd41b1701a376432608bc793848c2b5d50f258ec475a74fcd861aaa38d6abd",
+          "portable_draw_sha256": "2113c181eac1517da684fd25dd458515d5c8262fdc1da15c1f2f5f23188e5c31"
+        },
+        {
+          "task": "bh20-T",
+          "workers": 2,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 8.056008961051702,
+          "load_before": [
+            82.4482421875,
+            86.44287109375,
+            86.67041015625
+          ],
+          "load_after": [
+            82.86328125,
+            86.3828125,
+            86.6474609375
+          ],
+          "timings": {
+            "total_seconds": 7.969970093108714,
+            "compile_seconds": 0.087641751,
+            "preparation_seconds": 0.0537939602509141,
+            "sampling_seconds": 7.8890846110880375,
+            "query_seconds": 9.400019646999962,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9341812133789062,
+            "error": 0.000560760498046875,
+            "conditional_error": 0.0006002695087590346,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00048430769324595945,
+            "error": 4.623786493446069e-05,
+            "conditional_error": 4.9494627321342466e-05,
+            "moments": []
+          },
+          "draw_sha256": "36e880f12e328f370be8e28084a8e094cf3969fef6c86b2f8d75c515973f7bc0",
+          "portable_draw_sha256": "727787b59e29f484c21303cbfc5ef2701d6f75962bbd90dd31fbb02ed50a6358"
+        },
+        {
+          "task": "bh20-T",
+          "workers": 4,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 5.202097802422941,
+          "load_before": [
+            82.86328125,
+            86.3828125,
+            86.6474609375
+          ],
+          "load_after": [
+            84.55615234375,
+            86.67529296875,
+            86.74072265625
+          ],
+          "timings": {
+            "total_seconds": 5.079759218730032,
+            "compile_seconds": 0.33489550900000004,
+            "preparation_seconds": 0.09980626869946718,
+            "sampling_seconds": 4.930626347661018,
+            "query_seconds": 11.586087269000037,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9341812133789062,
+            "error": 0.000560760498046875,
+            "conditional_error": 0.0006002695087590346,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00048430769324595945,
+            "error": 4.623786493446069e-05,
+            "conditional_error": 4.9494627321342466e-05,
+            "moments": []
+          },
+          "draw_sha256": "36e880f12e328f370be8e28084a8e094cf3969fef6c86b2f8d75c515973f7bc0",
+          "portable_draw_sha256": "727787b59e29f484c21303cbfc5ef2701d6f75962bbd90dd31fbb02ed50a6358"
+        },
+        {
+          "task": "bh20-T",
+          "workers": 8,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 3.2559746811166406,
+          "load_before": [
+            84.55615234375,
+            86.67529296875,
+            86.74072265625
+          ],
+          "load_after": [
+            84.55615234375,
+            86.67529296875,
+            86.74072265625
+          ],
+          "timings": {
+            "total_seconds": 3.075236475095153,
+            "compile_seconds": 0.7667974,
+            "preparation_seconds": 0.109823452308774,
+            "sampling_seconds": 2.9089750964194536,
+            "query_seconds": 12.041532859000032,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9341812133789062,
+            "error": 0.000560760498046875,
+            "conditional_error": 0.0006002695087590346,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00048430769324595945,
+            "error": 4.623786493446069e-05,
+            "conditional_error": 4.9494627321342466e-05,
+            "moments": []
+          },
+          "draw_sha256": "36e880f12e328f370be8e28084a8e094cf3969fef6c86b2f8d75c515973f7bc0",
+          "portable_draw_sha256": "727787b59e29f484c21303cbfc5ef2701d6f75962bbd90dd31fbb02ed50a6358"
+        },
+        {
+          "task": "bh20-T",
+          "workers": 2,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 9.990915595553815,
+          "load_before": [
+            84.55615234375,
+            86.67529296875,
+            86.74072265625
+          ],
+          "load_after": [
+            87.47216796875,
+            87.22998046875,
+            86.92041015625
+          ],
+          "timings": {
+            "total_seconds": 9.86296893376857,
+            "compile_seconds": 0.157137072,
+            "preparation_seconds": 0.09897567331790924,
+            "sampling_seconds": 9.71022477094084,
+            "query_seconds": 12.045418314000084,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9352149963378906,
+            "error": 0.000579833984375,
+            "conditional_error": 0.0006200007342113958,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00048075503605647126,
+            "error": 4.7017199171243795e-05,
+            "conditional_error": 5.0273204058942566e-05,
+            "moments": []
+          },
+          "draw_sha256": "bab7dff36156e14c65c994b2a57cb492593043376442b7c51e422a722122475e",
+          "portable_draw_sha256": "ed6d2762db7cf2113f281e276cb67b4844552cb07e6c9cb187dd58bbdf3ec8c0"
+        },
+        {
+          "task": "bh20-T",
+          "workers": 4,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 5.567655707709491,
+          "load_before": [
+            87.47216796875,
+            87.22998046875,
+            86.92041015625
+          ],
+          "load_after": [
+            88.7958984375,
+            87.5087890625,
+            87.01220703125
+          ],
+          "timings": {
+            "total_seconds": 5.424785119481385,
+            "compile_seconds": 0.36464677700000003,
+            "preparation_seconds": 0.1200502160936594,
+            "sampling_seconds": 5.215942904353142,
+            "query_seconds": 12.188183317000142,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9352149963378906,
+            "error": 0.000579833984375,
+            "conditional_error": 0.0006200007342113958,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00048075503605647126,
+            "error": 4.7017199171243795e-05,
+            "conditional_error": 5.0273204058942566e-05,
+            "moments": []
+          },
+          "draw_sha256": "bab7dff36156e14c65c994b2a57cb492593043376442b7c51e422a722122475e",
+          "portable_draw_sha256": "ed6d2762db7cf2113f281e276cb67b4844552cb07e6c9cb187dd58bbdf3ec8c0"
+        },
+        {
+          "task": "bh20-T",
+          "workers": 8,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 3.0348855620250106,
+          "load_before": [
+            89.853515625,
+            87.74951171875,
+            87.0927734375
+          ],
+          "load_after": [
+            89.853515625,
+            87.74951171875,
+            87.0927734375
+          ],
+          "timings": {
+            "total_seconds": 2.86620403919369,
+            "compile_seconds": 0.7541598540000001,
+            "preparation_seconds": 0.10573994554579258,
+            "sampling_seconds": 2.7052659317851067,
+            "query_seconds": 10.910235923999931,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9352149963378906,
+            "error": 0.000579833984375,
+            "conditional_error": 0.0006200007342113958,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00048075503605647126,
+            "error": 4.7017199171243795e-05,
+            "conditional_error": 5.0273204058942566e-05,
+            "moments": []
+          },
+          "draw_sha256": "bab7dff36156e14c65c994b2a57cb492593043376442b7c51e422a722122475e",
+          "portable_draw_sha256": "ed6d2762db7cf2113f281e276cb67b4844552cb07e6c9cb187dd58bbdf3ec8c0"
+        },
+        {
+          "task": "bh20-T",
+          "workers": 1,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 10.01025990396738,
+          "load_before": [
+            89.853515625,
+            87.74951171875,
+            87.0927734375
+          ],
+          "load_after": [
+            89.7255859375,
+            87.77783203125,
+            87.10791015625
+          ],
+          "timings": {
+            "total_seconds": 9.908146658912301,
+            "compile_seconds": 0.07773712900000002,
+            "preparation_seconds": 0.09751000721007586,
+            "sampling_seconds": 9.761398016475141,
+            "query_seconds": 6.348724310000303,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9340744018554688,
+            "error": 0.00060272216796875,
+            "conditional_error": 0.0006452614125507429,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00048467279373390896,
+            "error": 4.7935640093896995e-05,
+            "conditional_error": 5.131777490098571e-05,
+            "moments": []
+          },
+          "draw_sha256": "d5d24a1de37a3bee2472dd35652084ed1e75af3c3d85c85ef849567e10777aff",
+          "portable_draw_sha256": "bdd421aa005ac6ecc94b89de2eae09ecd71014f211ba956ff6597e30ba0d23b2"
+        },
+        {
+          "task": "bh20-T",
+          "workers": 4,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 4.775604197755456,
+          "load_before": [
+            89.7255859375,
+            87.77783203125,
+            87.10791015625
+          ],
+          "load_after": [
+            88.70654296875,
+            87.5986328125,
+            87.05322265625
+          ],
+          "timings": {
+            "total_seconds": 4.646101259626448,
+            "compile_seconds": 0.324377215,
+            "preparation_seconds": 0.09593016188591719,
+            "sampling_seconds": 4.497088981792331,
+            "query_seconds": 10.137051792999857,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9348487854003906,
+            "error": 0.000537872314453125,
+            "conditional_error": 0.0005753575581988452,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00048201750423842516,
+            "error": 4.528492301963533e-05,
+            "conditional_error": 4.843999853657595e-05,
+            "moments": []
+          },
+          "draw_sha256": "d57d80db88d28a0c1888d53e001fb1b65923a228b47cb297f90293bdc91b9b7e",
+          "portable_draw_sha256": "10ebf6ce0d141b8a9993fc84731ad4d71c6d880836412dac3dc50e2139a6c688"
+        },
+        {
+          "task": "bh20-T",
+          "workers": 8,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 2.932576027698815,
+          "load_before": [
+            88.70654296875,
+            87.5986328125,
+            87.05322265625
+          ],
+          "load_after": [
+            88.73046875,
+            87.6220703125,
+            87.06396484375
+          ],
+          "timings": {
+            "total_seconds": 2.743804531171918,
+            "compile_seconds": 0.708747015,
+            "preparation_seconds": 0.09764857403934002,
+            "sampling_seconds": 2.596106830984354,
+            "query_seconds": 10.57185849,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9348487854003906,
+            "error": 0.000537872314453125,
+            "conditional_error": 0.0005753575581988452,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00048201750423842516,
+            "error": 4.528492301963533e-05,
+            "conditional_error": 4.843999853657595e-05,
+            "moments": []
+          },
+          "draw_sha256": "d57d80db88d28a0c1888d53e001fb1b65923a228b47cb297f90293bdc91b9b7e",
+          "portable_draw_sha256": "10ebf6ce0d141b8a9993fc84731ad4d71c6d880836412dac3dc50e2139a6c688"
+        },
+        {
+          "task": "bh20-T",
+          "workers": 1,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 15.412882646545768,
+          "load_before": [
+            88.73046875,
+            87.6220703125,
+            87.06396484375
+          ],
+          "load_after": [
+            89.35400390625,
+            87.84521484375,
+            87.14794921875
+          ],
+          "timings": {
+            "total_seconds": 15.26448955014348,
+            "compile_seconds": 0.07900536999999999,
+            "preparation_seconds": 0.09887148067355156,
+            "sampling_seconds": 15.11377527564764,
+            "query_seconds": 10.384113569000347,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9351997375488281,
+            "error": 0.00048828125,
+            "conditional_error": 0.0005221144001598976,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00048080772632375074,
+            "error": 4.314791717469323e-05,
+            "conditional_error": 4.6136868055635165e-05,
+            "moments": []
+          },
+          "draw_sha256": "9c80a7b975f0e5cdb54d541e4ef368bd0d3ab1e3d7b96b68d59e3fcdd7399cdc",
+          "portable_draw_sha256": "917a2b290fa0b82224f891d10b7225bbc02826ad9ff966776eda4f512b378199"
+        },
+        {
+          "task": "bh20-T",
+          "workers": 2,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 8.422833292745054,
+          "load_before": [
+            89.35400390625,
+            87.84521484375,
+            87.14794921875
+          ],
+          "load_after": [
+            90.28662109375,
+            88.06396484375,
+            87.22265625
+          ],
+          "timings": {
+            "total_seconds": 8.294991446658969,
+            "compile_seconds": 0.160317237,
+            "preparation_seconds": 0.09902041405439377,
+            "sampling_seconds": 8.145518284291029,
+            "query_seconds": 10.034409780000127,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.9348487854003906,
+            "error": 0.000537872314453125,
+            "conditional_error": 0.0005753575581988452,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00048201750423842516,
+            "error": 4.528492301963533e-05,
+            "conditional_error": 4.843999853657595e-05,
+            "moments": []
+          },
+          "draw_sha256": "d57d80db88d28a0c1888d53e001fb1b65923a228b47cb297f90293bdc91b9b7e",
+          "portable_draw_sha256": "10ebf6ce0d141b8a9993fc84731ad4d71c6d880836412dac3dc50e2139a6c688"
+        },
+        {
+          "task": "rp2-d3",
+          "workers": 1,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 5.55996813159436,
+          "load_before": [
+            90.28662109375,
+            88.06396484375,
+            87.22265625
+          ],
+          "load_after": [
+            89.06982421875,
+            87.89306640625,
+            87.1767578125
+          ],
+          "timings": {
+            "total_seconds": 5.460031490772963,
+            "compile_seconds": 0.011201613000000001,
+            "preparation_seconds": 0.013859839178621769,
+            "sampling_seconds": 5.42838101554662,
+            "query_seconds": 1.7206238499999915,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5130953788757324,
+            "error": 9.5367431640625e-07,
+            "conditional_error": 1.858668691376428e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.000975441458750747,
+            "error": 9.5367431640625e-07,
+            "conditional_error": 1.8586756857402467e-06,
+            "moments": []
+          },
+          "draw_sha256": "c7f82c5d47061bf17bb21fd5e733a65e7567e0e9a999aa1995ff8d34f5a0b0ea",
+          "portable_draw_sha256": "67289de674d1756b869e81d988373fa24caa4032475962e5ba2fc2644e51c154"
+        },
+        {
+          "task": "rp2-d3",
+          "workers": 2,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 3.2795759672299027,
+          "load_before": [
+            89.06982421875,
+            87.89306640625,
+            87.1767578125
+          ],
+          "load_after": [
+            89.06982421875,
+            87.89306640625,
+            87.1767578125
+          ],
+          "timings": {
+            "total_seconds": 3.205272391438484,
+            "compile_seconds": 0.017325040000000003,
+            "preparation_seconds": 0.007833239622414112,
+            "sampling_seconds": 3.1873392583802342,
+            "query_seconds": 1.521911424999993,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5116798877716064,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009754980550933946,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "a731e2bd9ea3360d1e1c4f57377da72b302e305e3af38eb89c04f27b0eddafca",
+          "portable_draw_sha256": "d8d78dba1f12b2c4bae7bd56d84d6030d4f087ff624ccdc121b60bc6197fea55"
+        },
+        {
+          "task": "rp2-d3",
+          "workers": 4,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 2.2120330473408103,
+          "load_before": [
+            89.06982421875,
+            87.89306640625,
+            87.1767578125
+          ],
+          "load_after": [
+            89.625,
+            88.02783203125,
+            87.224609375
+          ],
+          "timings": {
+            "total_seconds": 2.1080994503572583,
+            "compile_seconds": 0.044663867999999995,
+            "preparation_seconds": 0.013229398056864738,
+            "sampling_seconds": 2.0778447883203626,
+            "query_seconds": 2.0106826819999726,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5116798877716064,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009754980550933946,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "a731e2bd9ea3360d1e1c4f57377da72b302e305e3af38eb89c04f27b0eddafca",
+          "portable_draw_sha256": "d8d78dba1f12b2c4bae7bd56d84d6030d4f087ff624ccdc121b60bc6197fea55"
+        },
+        {
+          "task": "rp2-d3",
+          "workers": 8,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 1.407780285924673,
+          "load_before": [
+            89.625,
+            88.02783203125,
+            87.224609375
+          ],
+          "load_after": [
+            89.625,
+            88.02783203125,
+            87.224609375
+          ],
+          "timings": {
+            "total_seconds": 1.2922624507918954,
+            "compile_seconds": 0.098540078,
+            "preparation_seconds": 0.01383168064057827,
+            "sampling_seconds": 1.2607944589108229,
+            "query_seconds": 2.02048909000002,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5116798877716064,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009754980550933946,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "a731e2bd9ea3360d1e1c4f57377da72b302e305e3af38eb89c04f27b0eddafca",
+          "portable_draw_sha256": "d8d78dba1f12b2c4bae7bd56d84d6030d4f087ff624ccdc121b60bc6197fea55"
+        },
+        {
+          "task": "rp2-d3",
+          "workers": 2,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 3.371795224957168,
+          "load_before": [
+            89.625,
+            88.02783203125,
+            87.224609375
+          ],
+          "load_after": [
+            89.8154296875,
+            88.09423828125,
+            87.25048828125
+          ],
+          "timings": {
+            "total_seconds": 3.2912571849301457,
+            "compile_seconds": 0.015037762000000001,
+            "preparation_seconds": 0.007574073970317841,
+            "sampling_seconds": 3.274059146642685,
+            "query_seconds": 1.6858355049999956,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5135111808776855,
+            "error": 9.5367431640625e-07,
+            "conditional_error": 1.8571636839070267e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009754035086183457,
+            "error": 6.743482899484291e-07,
+            "conditional_error": 1.3132204093131544e-06,
+            "moments": []
+          },
+          "draw_sha256": "6c56787fdee38aa731ab48e4ec29c7b5b47b508033b7da01766c8e89dee10bc2",
+          "portable_draw_sha256": "986863745b30771cc59792c8cbc9e99de248683e895bfd91a6b03c8d88ae2ccc"
+        },
+        {
+          "task": "rp2-d3",
+          "workers": 4,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 2.1506190886721015,
+          "load_before": [
+            89.8154296875,
+            88.09423828125,
+            87.25048828125
+          ],
+          "load_after": [
+            89.8154296875,
+            88.09423828125,
+            87.25048828125
+          ],
+          "timings": {
+            "total_seconds": 2.053970172069967,
+            "compile_seconds": 0.05230172599999999,
+            "preparation_seconds": 0.01280518714338541,
+            "sampling_seconds": 2.024683323688805,
+            "query_seconds": 1.968428,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5135111808776855,
+            "error": 9.5367431640625e-07,
+            "conditional_error": 1.8571636839070267e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009754035086183457,
+            "error": 6.743482899484291e-07,
+            "conditional_error": 1.3132204093131544e-06,
+            "moments": []
+          },
+          "draw_sha256": "6c56787fdee38aa731ab48e4ec29c7b5b47b508033b7da01766c8e89dee10bc2",
+          "portable_draw_sha256": "986863745b30771cc59792c8cbc9e99de248683e895bfd91a6b03c8d88ae2ccc"
+        },
+        {
+          "task": "rp2-d3",
+          "workers": 8,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 1.424551848322153,
+          "load_before": [
+            89.8154296875,
+            88.09423828125,
+            87.25048828125
+          ],
+          "load_after": [
+            89.8154296875,
+            88.09423828125,
+            87.25048828125
+          ],
+          "timings": {
+            "total_seconds": 1.311889206059277,
+            "compile_seconds": 0.09737323900000001,
+            "preparation_seconds": 0.013390716165304184,
+            "sampling_seconds": 1.2811347879469395,
+            "query_seconds": 2.0901103150000084,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5135111808776855,
+            "error": 9.5367431640625e-07,
+            "conditional_error": 1.8571636839070267e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009754035086183457,
+            "error": 6.743482899484291e-07,
+            "conditional_error": 1.3132204093131544e-06,
+            "moments": []
+          },
+          "draw_sha256": "6c56787fdee38aa731ab48e4ec29c7b5b47b508033b7da01766c8e89dee10bc2",
+          "portable_draw_sha256": "986863745b30771cc59792c8cbc9e99de248683e895bfd91a6b03c8d88ae2ccc"
+        },
+        {
+          "task": "rp2-d3",
+          "workers": 1,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 4.744010088965297,
+          "load_before": [
+            89.8154296875,
+            88.09423828125,
+            87.25048828125
+          ],
+          "load_after": [
+            90.23095703125,
+            88.208984375,
+            87.29248046875
+          ],
+          "timings": {
+            "total_seconds": 4.665753132663667,
+            "compile_seconds": 0.006519072999999999,
+            "preparation_seconds": 0.007911927066743374,
+            "sampling_seconds": 4.64701228775084,
+            "query_seconds": 1.4410691269999734,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5140204429626465,
+            "error": 1.1920928955078125e-06,
+            "conditional_error": 2.3191546403037536e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009753471845350898,
+            "error": 9.830241024021957e-07,
+            "conditional_error": 1.9124332875205223e-06,
+            "moments": []
+          },
+          "draw_sha256": "db0a79ae363d90dfc122f95eea0f67487ba0efcabe5838751f231ec28194b13d",
+          "portable_draw_sha256": "3c893f0cd8ff79a81c22b2de3ca8be197210e9f8aa16696acb9e4b63e3593abe"
+        },
+        {
+          "task": "rp2-d3",
+          "workers": 4,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 2.0972549030557275,
+          "load_before": [
+            90.23095703125,
+            88.208984375,
+            87.29248046875
+          ],
+          "load_after": [
+            89.81201171875,
+            88.1552734375,
+            87.27978515625
+          ],
+          "timings": {
+            "total_seconds": 2.01061990018934,
+            "compile_seconds": 0.042479644,
+            "preparation_seconds": 0.008424796164035797,
+            "sampling_seconds": 1.9912582989782095,
+            "query_seconds": 1.8885963200000253,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.515812873840332,
+            "error": 9.5367431640625e-07,
+            "conditional_error": 1.8488765301764382e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009752312989986379,
+            "error": 9.5367431640625e-07,
+            "conditional_error": 1.8488834692604254e-06,
+            "moments": []
+          },
+          "draw_sha256": "3d361f5f831744eb84041da230bc42384c9d7ec490bd78df710f305584023cb8",
+          "portable_draw_sha256": "aace931e3def150f43ae285a82416a69655c8219e02d280a302ddd95a19f747c"
+        },
+        {
+          "task": "rp2-d3",
+          "workers": 8,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 1.6204317212104797,
+          "load_before": [
+            89.81201171875,
+            88.1552734375,
+            87.27978515625
+          ],
+          "load_after": [
+            89.81201171875,
+            88.1552734375,
+            87.27978515625
+          ],
+          "timings": {
+            "total_seconds": 1.5245058266445994,
+            "compile_seconds": 0.086278106,
+            "preparation_seconds": 0.007899925112724304,
+            "sampling_seconds": 1.5064046084880829,
+            "query_seconds": 1.8868735839999864,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.515812873840332,
+            "error": 9.5367431640625e-07,
+            "conditional_error": 1.8488765301764382e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009752312989986379,
+            "error": 9.5367431640625e-07,
+            "conditional_error": 1.8488834692604254e-06,
+            "moments": []
+          },
+          "draw_sha256": "3d361f5f831744eb84041da230bc42384c9d7ec490bd78df710f305584023cb8",
+          "portable_draw_sha256": "aace931e3def150f43ae285a82416a69655c8219e02d280a302ddd95a19f747c"
+        },
+        {
+          "task": "rp2-d3",
+          "workers": 1,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 3.8621545722708106,
+          "load_before": [
+            89.81201171875,
+            88.1552734375,
+            87.27978515625
+          ],
+          "load_after": [
+            87.66455078125,
+            87.7373046875,
+            87.14892578125
+          ],
+          "timings": {
+            "total_seconds": 3.791351686231792,
+            "compile_seconds": 0.010833999,
+            "preparation_seconds": 0.013448650948703289,
+            "sampling_seconds": 3.7645460749045014,
+            "query_seconds": 1.120231627999996,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.515887975692749,
+            "error": 7.152557373046875e-07,
+            "conditional_error": 1.3864555310563727e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009753142158476325,
+            "error": 5.331193364894893e-07,
+            "conditional_error": 1.033408916058717e-06,
+            "moments": []
+          },
+          "draw_sha256": "b7154d8c6f0b26f6b101320b1016152c12f1f02149bd1ef158fa5c8360fad49b",
+          "portable_draw_sha256": "1cbea15c6767007d31f63ec62640d500ffeefba97390b37321bb0f8595d85716"
+        },
+        {
+          "task": "rp2-d3",
+          "workers": 2,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 2.708062614314258,
+          "load_before": [
+            87.66455078125,
+            87.7373046875,
+            87.14892578125
+          ],
+          "load_after": [
+            87.66455078125,
+            87.7373046875,
+            87.14892578125
+          ],
+          "timings": {
+            "total_seconds": 2.6370274387300014,
+            "compile_seconds": 0.016321482000000002,
+            "preparation_seconds": 0.007756655104458332,
+            "sampling_seconds": 2.619718129746616,
+            "query_seconds": 1.1507285570000043,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.515812873840332,
+            "error": 9.5367431640625e-07,
+            "conditional_error": 1.8488765301764382e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009752312989986379,
+            "error": 9.5367431640625e-07,
+            "conditional_error": 1.8488834692604254e-06,
+            "moments": []
+          },
+          "draw_sha256": "3d361f5f831744eb84041da230bc42384c9d7ec490bd78df710f305584023cb8",
+          "portable_draw_sha256": "aace931e3def150f43ae285a82416a69655c8219e02d280a302ddd95a19f747c"
+        },
+        {
+          "task": "wg-T",
+          "workers": 1,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 4.169564040377736,
+          "load_before": [
+            87.66455078125,
+            87.7373046875,
+            87.14892578125
+          ],
+          "load_after": [
+            85.44921875,
+            87.2763671875,
+            87.0029296875
+          ],
+          "timings": {
+            "total_seconds": 4.085982549935579,
+            "compile_seconds": 0.016477812,
+            "preparation_seconds": 0.020387746393680573,
+            "sampling_seconds": 4.041813025251031,
+            "query_seconds": 1.360744188000035,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5488338470458984,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009708037346395248,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "dfc44f47bc8005a6e1a458adc573d83dd15dbf6649e6e16d8f76a4e39c6294dd",
+          "portable_draw_sha256": "aa95cb12b14171a2bb28a57ac56197f364b1939eb0660fbc83b027c07a13388a"
+        },
+        {
+          "task": "wg-T",
+          "workers": 2,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 2.9088836098089814,
+          "load_before": [
+            85.44921875,
+            87.2763671875,
+            87.0029296875
+          ],
+          "load_after": [
+            83.6513671875,
+            86.873046875,
+            86.87353515625
+          ],
+          "timings": {
+            "total_seconds": 2.8254194781184196,
+            "compile_seconds": 0.036710626,
+            "preparation_seconds": 0.020116887986660004,
+            "sampling_seconds": 2.78185925912112,
+            "query_seconds": 1.4654679010000025,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5486326217651367,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00097094203285569,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "b2c483d548156e2206cec3b7ee680bcd625429cd6eb4f5f28b4526032bffc146",
+          "portable_draw_sha256": "265eb8b4028ce68db37de59e3448df4c7feb2ff521944d4b91130301599b06d7"
+        },
+        {
+          "task": "wg-T",
+          "workers": 4,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 1.8826212640851736,
+          "load_before": [
+            83.6513671875,
+            86.873046875,
+            86.87353515625
+          ],
+          "load_after": [
+            83.6513671875,
+            86.873046875,
+            86.87353515625
+          ],
+          "timings": {
+            "total_seconds": 1.7955696545541286,
+            "compile_seconds": 0.081435732,
+            "preparation_seconds": 0.01995441410690546,
+            "sampling_seconds": 1.7528264168649912,
+            "query_seconds": 1.6568233860000254,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5486326217651367,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00097094203285569,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "b2c483d548156e2206cec3b7ee680bcd625429cd6eb4f5f28b4526032bffc146",
+          "portable_draw_sha256": "265eb8b4028ce68db37de59e3448df4c7feb2ff521944d4b91130301599b06d7"
+        },
+        {
+          "task": "wg-T",
+          "workers": 8,
+          "repeat": 0,
+          "shots": 262144,
+          "seed": 20261016,
+          "wall_seconds": 1.516498145647347,
+          "load_before": [
+            83.6513671875,
+            86.873046875,
+            86.87353515625
+          ],
+          "load_after": [
+            83.6513671875,
+            86.873046875,
+            86.87353515625
+          ],
+          "timings": {
+            "total_seconds": 1.4056775104254484,
+            "compile_seconds": 0.20305263699999998,
+            "preparation_seconds": 0.03291046712547541,
+            "sampling_seconds": 1.3319476246833801,
+            "query_seconds": 2.129489238999984,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5486326217651367,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.00097094203285569,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "b2c483d548156e2206cec3b7ee680bcd625429cd6eb4f5f28b4526032bffc146",
+          "portable_draw_sha256": "265eb8b4028ce68db37de59e3448df4c7feb2ff521944d4b91130301599b06d7"
+        },
+        {
+          "task": "wg-T",
+          "workers": 2,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 4.3187331929802895,
+          "load_before": [
+            84.400390625,
+            86.97509765625,
+            86.90673828125
+          ],
+          "load_after": [
+            84.400390625,
+            86.97509765625,
+            86.90673828125
+          ],
+          "timings": {
+            "total_seconds": 4.239891763776541,
+            "compile_seconds": 0.047044664,
+            "preparation_seconds": 0.021353251300752163,
+            "sampling_seconds": 4.194095939397812,
+            "query_seconds": 2.609882421000024,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5509443283081055,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009704859795056787,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "7cc1d442d9cd019701fe3a4f98f1807cdafa90684219c1a7fbc8df764329b39d",
+          "portable_draw_sha256": "f59c43cb78153fa000f4ed9ee9a54630f9ae079b9563441d60f31039e3686c11"
+        },
+        {
+          "task": "wg-T",
+          "workers": 4,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 2.746791266836226,
+          "load_before": [
+            84.400390625,
+            86.97509765625,
+            86.90673828125
+          ],
+          "load_after": [
+            85.16943359375,
+            87.091796875,
+            86.9453125
+          ],
+          "timings": {
+            "total_seconds": 2.6343161072582006,
+            "compile_seconds": 0.11628285499999999,
+            "preparation_seconds": 0.0350003344938159,
+            "sampling_seconds": 2.5568591319024563,
+            "query_seconds": 2.910520729999954,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5509443283081055,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009704859795056787,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "7cc1d442d9cd019701fe3a4f98f1807cdafa90684219c1a7fbc8df764329b39d",
+          "portable_draw_sha256": "f59c43cb78153fa000f4ed9ee9a54630f9ae079b9563441d60f31039e3686c11"
+        },
+        {
+          "task": "wg-T",
+          "workers": 8,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 1.7761245211586356,
+          "load_before": [
+            85.16943359375,
+            87.091796875,
+            86.9453125
+          ],
+          "load_after": [
+            85.16943359375,
+            87.091796875,
+            86.9453125
+          ],
+          "timings": {
+            "total_seconds": 1.6367796566337347,
+            "compile_seconds": 0.26677553899999995,
+            "preparation_seconds": 0.040192099288105965,
+            "sampling_seconds": 1.5494218552485108,
+            "query_seconds": 2.9239017729999883,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5509443283081055,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009704859795056787,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "7cc1d442d9cd019701fe3a4f98f1807cdafa90684219c1a7fbc8df764329b39d",
+          "portable_draw_sha256": "f59c43cb78153fa000f4ed9ee9a54630f9ae079b9563441d60f31039e3686c11"
+        },
+        {
+          "task": "wg-T",
+          "workers": 1,
+          "repeat": 1,
+          "shots": 262144,
+          "seed": 20261017,
+          "wall_seconds": 7.619557810947299,
+          "load_before": [
+            85.16943359375,
+            87.091796875,
+            86.9453125
+          ],
+          "load_after": [
+            85.51171875,
+            87.1044921875,
+            86.951171875
+          ],
+          "timings": {
+            "total_seconds": 7.505910420790315,
+            "compile_seconds": 0.031077989,
+            "preparation_seconds": 0.039870661683380604,
+            "sampling_seconds": 7.418020990677178,
+            "query_seconds": 2.7283002700000116,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5495548248291016,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009707842819838256,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "b034e5114c6fcfcad255fb47f65a3d10e249af59e260af0b27c97c800485ab08",
+          "portable_draw_sha256": "35a5cd3718cef8836c574616fecb0f7023ced7b15e530d1037ace45a3388bb87"
+        },
+        {
+          "task": "wg-T",
+          "workers": 4,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 2.6972741512581706,
+          "load_before": [
+            85.51171875,
+            87.1044921875,
+            86.951171875
+          ],
+          "load_after": [
+            85.51171875,
+            87.1044921875,
+            86.951171875
+          ],
+          "timings": {
+            "total_seconds": 2.5920283207669854,
+            "compile_seconds": 0.117734134,
+            "preparation_seconds": 0.022977683693170547,
+            "sampling_seconds": 2.5418597953394055,
+            "query_seconds": 2.523317675000035,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5516672134399414,
+            "error": 5.7220458984375e-06,
+            "conditional_error": 1.0372278357376852e-05,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009703148778035108,
+            "error": 4.264954691915914e-06,
+            "conditional_error": 7.731006416688006e-06,
+            "moments": []
+          },
+          "draw_sha256": "76721039004cfded25b23fdb2d03ca9d27f03f97f7fd33721351c62e24d1362d",
+          "portable_draw_sha256": "355ee7ac3e5eeb6aa3b80c94827f987ec09380884a4b104a6537dcf49a291b9e"
+        },
+        {
+          "task": "wg-T",
+          "workers": 8,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 1.6940305940806866,
+          "load_before": [
+            85.51171875,
+            87.1044921875,
+            86.951171875
+          ],
+          "load_after": [
+            85.470703125,
+            87.0693359375,
+            86.9404296875
+          ],
+          "timings": {
+            "total_seconds": 1.5991192059591413,
+            "compile_seconds": 0.226436785,
+            "preparation_seconds": 0.02126798778772354,
+            "sampling_seconds": 1.5535502629354596,
+            "query_seconds": 2.791420972999954,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5516672134399414,
+            "error": 5.7220458984375e-06,
+            "conditional_error": 1.0372278357376852e-05,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009703148778035108,
+            "error": 4.264954691915914e-06,
+            "conditional_error": 7.731006416688006e-06,
+            "moments": []
+          },
+          "draw_sha256": "76721039004cfded25b23fdb2d03ca9d27f03f97f7fd33721351c62e24d1362d",
+          "portable_draw_sha256": "355ee7ac3e5eeb6aa3b80c94827f987ec09380884a4b104a6537dcf49a291b9e"
+        },
+        {
+          "task": "wg-T",
+          "workers": 1,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 7.546211360022426,
+          "load_before": [
+            85.470703125,
+            87.0693359375,
+            86.9404296875
+          ],
+          "load_after": [
+            85.1123046875,
+            86.96826171875,
+            86.908203125
+          ],
+          "timings": {
+            "total_seconds": 7.430698404088616,
+            "compile_seconds": 0.031910788,
+            "preparation_seconds": 0.04077758826315403,
+            "sampling_seconds": 7.3406612584367394,
+            "query_seconds": 2.7039376490000144,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5525531768798828,
+            "error": 3.814697265625e-06,
+            "conditional_error": 6.9037649682254216e-06,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009701225749747035,
+            "error": 3.814697265625e-06,
+            "conditional_error": 6.903754282414578e-06,
+            "moments": []
+          },
+          "draw_sha256": "0923e047cc5a8d3c6ec4c24655c05f192dd34f16860a18d373ac69af0300bb4a",
+          "portable_draw_sha256": "febc250db9820165e72c74877d4d0f92357347f880795767259f1d7e5833e1e2"
+        },
+        {
+          "task": "wg-T",
+          "workers": 2,
+          "repeat": 2,
+          "shots": 262144,
+          "seed": 20261018,
+          "wall_seconds": 4.849612933583558,
+          "load_before": [
+            85.1123046875,
+            86.96826171875,
+            86.908203125
+          ],
+          "load_after": [
+            84.78271484375,
+            86.869140625,
+            86.87646484375
+          ],
+          "timings": {
+            "total_seconds": 4.739628058858216,
+            "compile_seconds": 0.061845221,
+            "preparation_seconds": 0.03663371782749891,
+            "sampling_seconds": 4.657398014329374,
+            "query_seconds": 2.905389868000002,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 262144,
+          "estimates": {
+            "acceptance": 0.5516672134399414,
+            "error": 5.7220458984375e-06,
+            "conditional_error": 1.0372278357376852e-05,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0009703148778035108,
+            "error": 4.264954691915914e-06,
+            "conditional_error": 7.731006416688006e-06,
+            "moments": []
+          },
+          "draw_sha256": "76721039004cfded25b23fdb2d03ca9d27f03f97f7fd33721351c62e24d1362d",
+          "portable_draw_sha256": "355ee7ac3e5eeb6aa3b80c94827f987ec09380884a4b104a6537dcf49a291b9e"
+        }
+      ],
+      "task_fingerprints": {
+        "bh2-T": {
+          "circuit": "0493594c139cf2e6aad28a1ae80d3d8e9f00141972d5bc5893e8e0d1dd5c458b",
+          "task": "6c3374953a77b3eb61179d1c8562334a748e61646c750d7508cd0f9d494c02ee",
+          "controllers": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "options": "cb1c6630381e6828f8dd8acb36ab25efe3c37b54cb1ea9982f9d6feb3c3dcfa2",
+          "ideal_state": "c4c4f11671ce9e5c799ccd740eed12c168ac2aab934b2f75687da01b79e9fd46",
+          "recovery": null,
+          "sampling": "d2b32c94c6b0270beb8ef4cf5dec207b1ad0b9eacc3756f3caf050e7adbabcb0"
+        },
+        "bh20-T": {
+          "circuit": "2d7de35a295e27d9b9e6b94506ee75b69322790981fa2385e6b64f52c23cde09",
+          "task": "b48c111f8b4cd827677a609885babb2617d64855258eaa8ba54d665927195ae7",
+          "controllers": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "options": "cb1c6630381e6828f8dd8acb36ab25efe3c37b54cb1ea9982f9d6feb3c3dcfa2",
+          "ideal_state": "fd7501e16010c88cde3accd29ea507b5d1eebdfc48c22032df560ba1942c3b90",
+          "recovery": null,
+          "sampling": "d2b32c94c6b0270beb8ef4cf5dec207b1ad0b9eacc3756f3caf050e7adbabcb0"
+        },
+        "rp2-d3": {
+          "circuit": "cb79771cf20644f534727e3fbed7f1848d93e68243bc99e35fc926d62f240bd9",
+          "task": "d40b2dd3ebaea170b8f878f33ca5f14476525ea17857277dccbb2c71d9553b3e",
+          "controllers": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "options": "cb1c6630381e6828f8dd8acb36ab25efe3c37b54cb1ea9982f9d6feb3c3dcfa2",
+          "ideal_state": "cfab543f5bc7c08e74c1ff4561d1bd8e8fd4e45e636fc028efc6cfcb26664aaa",
+          "recovery": null,
+          "sampling": "d2b32c94c6b0270beb8ef4cf5dec207b1ad0b9eacc3756f3caf050e7adbabcb0"
+        },
+        "wg-T": {
+          "circuit": "64a0221a0adca478482391abbe81aa7872c489311bd923fdeeac193f1f177cec",
+          "task": "af93cfc5e4f73e3f284c00b862fe41049c92fc4d1cf35c2ec20e85d10b915ead",
+          "controllers": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "options": "cb1c6630381e6828f8dd8acb36ab25efe3c37b54cb1ea9982f9d6feb3c3dcfa2",
+          "ideal_state": "b084140732fa729b64ef9a45a792622129ce9d39c2487a32f5872bcd384725cc",
+          "recovery": null,
+          "sampling": "d2b32c94c6b0270beb8ef4cf5dec207b1ad0b9eacc3756f3caf050e7adbabcb0"
+        }
+      }
+    },
+    "candidate-small": {
+      "label": "feat-parallel-small",
+      "source_sha256": "2b375bd5bc2f627ef0e362db1bec0052b581126df6dc386029c8239c2712df54",
+      "environment": {
+        "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+        "platform": "Linux-5.15.0-187-generic-x86_64-with-glibc2.35",
+        "machine": "x86_64",
+        "processor": "x86_64",
+        "logical_cpus": 128,
+        "affinity_cpus": 128
+      },
+      "workers": [
+        1,
+        8
+      ],
+      "repeats": 3,
+      "summary": [
+        {
+          "task": "bh2-T",
+          "shots": 1024,
+          "workers": 1,
+          "wall_seconds": 0.094328248873353,
+          "total_seconds": 0.029133865609765053,
+          "preparation_seconds": 0.007099921815097332,
+          "sampling_seconds": 0.01629999652504921,
+          "wall_speedup": 1.0,
+          "sampling_speedup": 1.0,
+          "shots_per_sampling_second": 62822.0992824358
+        },
+        {
+          "task": "bh2-T",
+          "shots": 1024,
+          "workers": 8,
+          "wall_seconds": 0.0985720781609416,
+          "total_seconds": 0.02696324046701193,
+          "preparation_seconds": 0.007099500857293606,
+          "sampling_seconds": 0.014482086524367332,
+          "wall_speedup": 0.9569469431225791,
+          "sampling_speedup": 1.1255281825324748,
+          "shots_per_sampling_second": 70708.04322823466
+        },
+        {
+          "task": "dk",
+          "shots": 1024,
+          "workers": 1,
+          "wall_seconds": 0.11802032310515642,
+          "total_seconds": 0.050494237802922726,
+          "preparation_seconds": 0.008349631913006306,
+          "sampling_seconds": 0.03250086400657892,
+          "wall_speedup": 1.0,
+          "sampling_speedup": 1.0,
+          "shots_per_sampling_second": 31506.854703700148
+        },
+        {
+          "task": "dk",
+          "shots": 1024,
+          "workers": 8,
+          "wall_seconds": 0.1241269176825881,
+          "total_seconds": 0.05020202323794365,
+          "preparation_seconds": 0.008358442224562168,
+          "sampling_seconds": 0.03241756558418274,
+          "wall_speedup": 0.9508036234892484,
+          "sampling_speedup": 1.002569545889554,
+          "shots_per_sampling_second": 31587.813012696817
+        }
+      ],
+      "runs": [
+        {
+          "task": "bh2-T",
+          "workers": 1,
+          "repeat": 0,
+          "shots": 1024,
+          "seed": 20261016,
+          "wall_seconds": 0.0943073770031333,
+          "load_before": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "load_after": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "timings": {
+            "total_seconds": 0.029133865609765053,
+            "compile_seconds": 0.005873525,
+            "preparation_seconds": 0.0070738885551691055,
+            "sampling_seconds": 0.01629999652504921,
+            "query_seconds": 0.0063640449999999875,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 1024,
+          "estimates": {
+            "acceptance": 0.984375,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0038775060480278644,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "7fc09b9f21626b0d9432dd32870c94bbf81f090e6efd7f087083573b3d8985cf",
+          "portable_draw_sha256": "35e4295a82802332d2811b24a87b50ccd52ead98200b2bd7fcedfb16487d1257"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 8,
+          "repeat": 0,
+          "shots": 1024,
+          "seed": 20261016,
+          "wall_seconds": 0.09969116374850273,
+          "load_before": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "load_after": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "timings": {
+            "total_seconds": 0.02696324046701193,
+            "compile_seconds": 0.06622652500000001,
+            "preparation_seconds": 0.006951085291802883,
+            "sampling_seconds": 0.014482086524367332,
+            "query_seconds": 0.008130057000000007,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 1024,
+          "estimates": {
+            "acceptance": 0.984375,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0038775060480278644,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "7fc09b9f21626b0d9432dd32870c94bbf81f090e6efd7f087083573b3d8985cf",
+          "portable_draw_sha256": "35e4295a82802332d2811b24a87b50ccd52ead98200b2bd7fcedfb16487d1257"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 8,
+          "repeat": 1,
+          "shots": 1024,
+          "seed": 20261017,
+          "wall_seconds": 0.0985720781609416,
+          "load_before": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "load_after": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "timings": {
+            "total_seconds": 0.026593908667564392,
+            "compile_seconds": 0.061271065,
+            "preparation_seconds": 0.0071381330490112305,
+            "sampling_seconds": 0.013703652657568455,
+            "query_seconds": 0.007561090000000005,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 1024,
+          "estimates": {
+            "acceptance": 0.9853515625,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0037562409167726895,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "9c864d0fcb87f8df8a47588d7cf1feec837a6fe1b60e3ae466747f8790ad871f",
+          "portable_draw_sha256": "ebb4cfa5f913998524af57d56138afd5951360c703d26f79dc068f213a2d4d2b"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 1,
+          "repeat": 1,
+          "shots": 1024,
+          "seed": 20261017,
+          "wall_seconds": 0.094328248873353,
+          "load_before": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "load_after": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "timings": {
+            "total_seconds": 0.029279845766723156,
+            "compile_seconds": 0.006119385,
+            "preparation_seconds": 0.00734916515648365,
+            "sampling_seconds": 0.016185293905436993,
+            "query_seconds": 0.0062924899999999995,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 1024,
+          "estimates": {
+            "acceptance": 0.98828125,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.003364674879742613,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "b52baf71f063e712894e46281411cb6c7f1f40005adc412ae4450101572ce066",
+          "portable_draw_sha256": "81e9385c867365eab47f1d35051be7d5e1f4ca21ec1c44110529a232eec66a6c"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 1,
+          "repeat": 2,
+          "shots": 1024,
+          "seed": 20261018,
+          "wall_seconds": 0.09524160251021385,
+          "load_before": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "load_after": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "timings": {
+            "total_seconds": 0.029064924456179142,
+            "compile_seconds": 0.0058901890000000005,
+            "preparation_seconds": 0.007099921815097332,
+            "sampling_seconds": 0.01632332243025303,
+            "query_seconds": 0.006331527999999992,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 1024,
+          "estimates": {
+            "acceptance": 0.9892578125,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.003223022161737136,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "31391db54c3ed81cb957fd9a66aec80a1654ace73000708157c8ee8228f65d4e",
+          "portable_draw_sha256": "bce9443904ae10dad2c11e01e92188cbbe51b025e1ba93f5437849f15c2865f1"
+        },
+        {
+          "task": "bh2-T",
+          "workers": 8,
+          "repeat": 2,
+          "shots": 1024,
+          "seed": 20261018,
+          "wall_seconds": 0.09603941347450018,
+          "load_before": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "load_after": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "timings": {
+            "total_seconds": 0.030525654554367065,
+            "compile_seconds": 0.067322158,
+            "preparation_seconds": 0.007099500857293606,
+            "sampling_seconds": 0.01757361926138401,
+            "query_seconds": 0.008063068,
+            "decoder_seconds": 0.0,
+            "support_seconds": 0.0
+          },
+          "status": "complete",
+          "completed": 1024,
+          "estimates": {
+            "acceptance": 0.9853515625,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.0037562409167726895,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "9c864d0fcb87f8df8a47588d7cf1feec837a6fe1b60e3ae466747f8790ad871f",
+          "portable_draw_sha256": "ebb4cfa5f913998524af57d56138afd5951360c703d26f79dc068f213a2d4d2b"
+        },
+        {
+          "task": "dk",
+          "workers": 1,
+          "repeat": 0,
+          "shots": 1024,
+          "seed": 20261016,
+          "wall_seconds": 0.11802032310515642,
+          "load_before": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "load_after": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "timings": {
+            "total_seconds": 0.050494237802922726,
+            "compile_seconds": 0.006052525,
+            "preparation_seconds": 0.008422743529081345,
+            "sampling_seconds": 0.03250086400657892,
+            "query_seconds": 0.007530394999999987,
+            "decoder_seconds": 0.008426470000000004,
+            "support_seconds": 0.0011050899999999995
+          },
+          "status": "complete",
+          "completed": 1024,
+          "estimates": {
+            "acceptance": 0.8544921875,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.01100284366298134,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "0bd5699541de1f900bd5ee4c125bc97557bada555f5629d44da6b6651b2126e9",
+          "portable_draw_sha256": "bc2ef76d040e6de7a4e9f8a3a150dcccdbf43bfa21f7b57108cbfd8c41303259"
+        },
+        {
+          "task": "dk",
+          "workers": 8,
+          "repeat": 0,
+          "shots": 1024,
+          "seed": 20261016,
+          "wall_seconds": 0.11413996201008558,
+          "load_before": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "load_after": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "timings": {
+            "total_seconds": 0.04881850630044937,
+            "compile_seconds": 0.068483191,
+            "preparation_seconds": 0.008358442224562168,
+            "sampling_seconds": 0.03100348822772503,
+            "query_seconds": 0.009843615000000005,
+            "decoder_seconds": 0.10640059899999997,
+            "support_seconds": 0.001184257
+          },
+          "status": "complete",
+          "completed": 1024,
+          "estimates": {
+            "acceptance": 0.8544921875,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.01100284366298134,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "0bd5699541de1f900bd5ee4c125bc97557bada555f5629d44da6b6651b2126e9",
+          "portable_draw_sha256": "bc2ef76d040e6de7a4e9f8a3a150dcccdbf43bfa21f7b57108cbfd8c41303259"
+        },
+        {
+          "task": "dk",
+          "workers": 8,
+          "repeat": 1,
+          "shots": 1024,
+          "seed": 20261017,
+          "wall_seconds": 0.1241269176825881,
+          "load_before": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "load_after": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "timings": {
+            "total_seconds": 0.05020202323794365,
+            "compile_seconds": 0.065432914,
+            "preparation_seconds": 0.008295374922454357,
+            "sampling_seconds": 0.03241756558418274,
+            "query_seconds": 0.010864935999999997,
+            "decoder_seconds": 0.10966095799999999,
+            "support_seconds": 0.001333658
+          },
+          "status": "complete",
+          "completed": 1024,
+          "estimates": {
+            "acceptance": 0.83935546875,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.011470295062533118,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "f1032ffe99a1ac1bd0921ab2a58e391b244fa2c64ff52cc7db716bb549641707",
+          "portable_draw_sha256": "f1bc7ace8ac61897f16b4078ce5e1955bd6b97c0f92328537252c8117a56636e"
+        },
+        {
+          "task": "dk",
+          "workers": 1,
+          "repeat": 1,
+          "shots": 1024,
+          "seed": 20261017,
+          "wall_seconds": 0.111394003033638,
+          "load_before": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "load_after": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "timings": {
+            "total_seconds": 0.05063294991850853,
+            "compile_seconds": 0.005997053,
+            "preparation_seconds": 0.008319537155330181,
+            "sampling_seconds": 0.03282466530799866,
+            "query_seconds": 0.007550530000000002,
+            "decoder_seconds": 0.008868381000000005,
+            "support_seconds": 0.0008817539999999989
+          },
+          "status": "complete",
+          "completed": 1024,
+          "estimates": {
+            "acceptance": 0.83447265625,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.01158907111261488,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "e67bbe02f48fc454a4143bb67edc0b0b4d1e80bf50e1666133290bbf31ad48f4",
+          "portable_draw_sha256": "4c2d3a6019db9ffe2f83c386e22d611906369ea4182e99f8715f918a89c6afc9"
+        },
+        {
+          "task": "dk",
+          "workers": 1,
+          "repeat": 2,
+          "shots": 1024,
+          "seed": 20261018,
+          "wall_seconds": 0.12086789961904287,
+          "load_before": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "load_after": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "timings": {
+            "total_seconds": 0.050144304521381855,
+            "compile_seconds": 0.006003330000000001,
+            "preparation_seconds": 0.008349631913006306,
+            "sampling_seconds": 0.03227755706757307,
+            "query_seconds": 0.007384900999999995,
+            "decoder_seconds": 0.008682584000000009,
+            "support_seconds": 0.0008906229999999991
+          },
+          "status": "complete",
+          "completed": 1024,
+          "estimates": {
+            "acceptance": 0.84716796875,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.011239430175223882,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "95156e560986d7e3f21cf3aec31b152950d655313b09501b33836cb67b14048f",
+          "portable_draw_sha256": "2a2b443540232c4975a46e20792a3b1a4834c9ce8e99c749d483b55dd883049b"
+        },
+        {
+          "task": "dk",
+          "workers": 8,
+          "repeat": 2,
+          "shots": 1024,
+          "seed": 20261018,
+          "wall_seconds": 0.12482322100549936,
+          "load_before": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "load_after": [
+            81.32080078125,
+            86.03369140625,
+            86.6044921875
+          ],
+          "timings": {
+            "total_seconds": 0.05123194586485624,
+            "compile_seconds": 0.069470236,
+            "preparation_seconds": 0.008456019684672356,
+            "sampling_seconds": 0.033048355020582676,
+            "query_seconds": 0.010633047999999999,
+            "decoder_seconds": 0.114241369,
+            "support_seconds": 0.001315237
+          },
+          "status": "complete",
+          "completed": 1024,
+          "estimates": {
+            "acceptance": 0.85595703125,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "standard_errors": {
+            "acceptance": 0.010923795793778397,
+            "error": 0.0,
+            "conditional_error": 0.0,
+            "moments": []
+          },
+          "draw_sha256": "70a23cc56f75eb714fc4f73040340eb0f57635ea6f9111f9e169d5abca7508ec",
+          "portable_draw_sha256": "d2de010f47f00f0303cf9640b8e20a5f277235c8b0036f9fa1e8d1205b3e3a24"
+        }
+      ],
+      "task_fingerprints": {
+        "bh2-T": {
+          "circuit": "0493594c139cf2e6aad28a1ae80d3d8e9f00141972d5bc5893e8e0d1dd5c458b",
+          "task": "6c3374953a77b3eb61179d1c8562334a748e61646c750d7508cd0f9d494c02ee",
+          "controllers": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "options": "cb1c6630381e6828f8dd8acb36ab25efe3c37b54cb1ea9982f9d6feb3c3dcfa2",
+          "ideal_state": "c4c4f11671ce9e5c799ccd740eed12c168ac2aab934b2f75687da01b79e9fd46",
+          "recovery": null,
+          "sampling": "d2b32c94c6b0270beb8ef4cf5dec207b1ad0b9eacc3756f3caf050e7adbabcb0"
+        },
+        "dk": {
+          "circuit": "7eed39084411ed1875a3cfc6b971db13669d7792e7ee982526136c1e9aac5bde",
+          "task": "31e97c23e978665bc032bd6b24d6bc8b8cfc4d3ba5463c2bbca8e7480ca084b2",
+          "controllers": "a9a1b42d525a0371b539f66ad2e93ee713b11ea592232e468c177ad653506403",
+          "options": "cb1c6630381e6828f8dd8acb36ab25efe3c37b54cb1ea9982f9d6feb3c3dcfa2",
+          "ideal_state": "ca26adcf2f83fc36a8f73f25f92c03ae42f5df29f208ecb9507107fd58b2c114",
+          "recovery": "2b6def1072e991f4ec99be23f56714fbefa785cf9b4555c69910b80667815228",
+          "sampling": "d2b32c94c6b0270beb8ef4cf5dec207b1ad0b9eacc3756f3caf050e7adbabcb0"
+        }
+      }
+    }
+  },
+  "checks": {
+    "main_vs_candidate_serial_portable": {
+      "comparisons": 12,
+      "all_equal": true
+    },
+    "parallel_worker_counts_all_fields": {
+      "comparisons": 24,
+      "all_equal": true
+    },
+    "paired_serial_identical_paths_all_fields": {
+      "comparisons": 6,
+      "all_equal": true
+    }
+  },
+  "paired_serial": {
+    "cpu": 2,
+    "siblings": [
+      2,
+      66
+    ],
+    "initial_cpu_utilization": 0.0,
+    "initial_sibling_utilization": {
+      "2": 0.0,
+      "66": 0.0
+    },
+    "selection": "Lowest maximum utilization of an SMT pair during a two-second /proc/stat sample",
+    "runs": [
+      {
+        "task": "bh2-T",
+        "revision": "baseline",
+        "repeat": 0,
+        "seed": 20261016,
+        "wall_seconds": 4.200578656978905,
+        "load_after": [
+          36.9111328125,
+          65.28369140625,
+          78.61767578125
+        ],
+        "timings": {
+          "total_seconds": 4.127562077715993,
+          "compile_seconds": 0.007044339,
+          "preparation_seconds": 0.00850560050457716,
+          "sampling_seconds": 4.112369861453772,
+          "query_seconds": 1.5977800800000381,
+          "decoder_seconds": 0.0,
+          "support_seconds": 0.0
+        },
+        "status": "complete",
+        "completed": 262144,
+        "estimates": {
+          "acceptance": 0.9860725402832031,
+          "error": 3.814697265625e-06,
+          "conditional_error": 3.8685767119419095e-06,
+          "moments": []
+        },
+        "standard_errors": {
+          "acceptance": 0.00022888706767498716,
+          "error": 3.814697265625e-06,
+          "conditional_error": 3.868576607723125e-06,
+          "moments": []
+        },
+        "draw_sha256": "5700db8cec28a8393a902ec9ad930e41c9442a069c72845352ec50616eb47ccb",
+        "portable_draw_sha256": "5f572a6977c73b2854cb514aa8d50304127631572a5f32d714d34200d1483ce4"
+      },
+      {
+        "task": "bh2-T",
+        "revision": "candidate",
+        "repeat": 0,
+        "seed": 20261016,
+        "wall_seconds": 4.111698009073734,
+        "load_after": [
+          36.837890625,
+          64.79736328125,
+          78.388671875
+        ],
+        "timings": {
+          "total_seconds": 4.05271006282419,
+          "compile_seconds": 0.0058448120000000004,
+          "preparation_seconds": 0.007047570310533047,
+          "sampling_seconds": 4.0400450099259615,
+          "query_seconds": 1.5766015930000645,
+          "decoder_seconds": 0.0,
+          "support_seconds": 0.0
+        },
+        "status": "complete",
+        "completed": 262144,
+        "estimates": {
+          "acceptance": 0.9860725402832031,
+          "error": 3.814697265625e-06,
+          "conditional_error": 3.8685767119419095e-06,
+          "moments": []
+        },
+        "standard_errors": {
+          "acceptance": 0.00022888706767498716,
+          "error": 3.814697265625e-06,
+          "conditional_error": 3.868576607723125e-06,
+          "moments": []
+        },
+        "draw_sha256": "5700db8cec28a8393a902ec9ad930e41c9442a069c72845352ec50616eb47ccb",
+        "portable_draw_sha256": "5f572a6977c73b2854cb514aa8d50304127631572a5f32d714d34200d1483ce4"
+      },
+      {
+        "task": "bh2-T",
+        "revision": "candidate",
+        "repeat": 1,
+        "seed": 20261017,
+        "wall_seconds": 4.093871193006635,
+        "load_after": [
+          35.0888671875,
+          63.97021484375,
+          78.0478515625
+        ],
+        "timings": {
+          "total_seconds": 4.036956881172955,
+          "compile_seconds": 0.005634431,
+          "preparation_seconds": 0.006788266822695732,
+          "sampling_seconds": 4.0247686402872205,
+          "query_seconds": 1.5637300150001063,
+          "decoder_seconds": 0.0,
+          "support_seconds": 0.0
+        },
+        "status": "complete",
+        "completed": 262144,
+        "estimates": {
+          "acceptance": 0.9856376647949219,
+          "error": 1.52587890625e-05,
+          "conditional_error": 1.548113430271036e-05,
+          "moments": []
+        },
+        "standard_errors": {
+          "acceptance": 0.00023238176299924797,
+          "error": 7.629350875212879e-06,
+          "conditional_error": 7.740521998631591e-06,
+          "moments": []
+        },
+        "draw_sha256": "4416bcdff1b2896b67e57baa07c1fd06a57068e9cb3b8efeabbfc8901127a5d0",
+        "portable_draw_sha256": "c90f8221ddc8c1fb9068f08f4eb815b8f09ebb27d4c0c9d6484b8477aeddf93b"
+      },
+      {
+        "task": "bh2-T",
+        "revision": "baseline",
+        "repeat": 1,
+        "seed": 20261017,
+        "wall_seconds": 3.976653597317636,
+        "load_after": [
+          35.0888671875,
+          63.97021484375,
+          78.0478515625
+        ],
+        "timings": {
+          "total_seconds": 3.9178694430738688,
+          "compile_seconds": 0.005562470000000001,
+          "preparation_seconds": 0.006719203665852547,
+          "sampling_seconds": 3.905671363696456,
+          "query_seconds": 1.5187394760000203,
+          "decoder_seconds": 0.0,
+          "support_seconds": 0.0
+        },
+        "status": "complete",
+        "completed": 262144,
+        "estimates": {
+          "acceptance": 0.9856376647949219,
+          "error": 1.52587890625e-05,
+          "conditional_error": 1.548113430271036e-05,
+          "moments": []
+        },
+        "standard_errors": {
+          "acceptance": 0.00023238176299924797,
+          "error": 7.629350875212879e-06,
+          "conditional_error": 7.740521998631591e-06,
+          "moments": []
+        },
+        "draw_sha256": "4416bcdff1b2896b67e57baa07c1fd06a57068e9cb3b8efeabbfc8901127a5d0",
+        "portable_draw_sha256": "c90f8221ddc8c1fb9068f08f4eb815b8f09ebb27d4c0c9d6484b8477aeddf93b"
+      },
+      {
+        "task": "bh2-T",
+        "revision": "baseline",
+        "repeat": 2,
+        "seed": 20261018,
+        "wall_seconds": 3.944807860068977,
+        "load_after": [
+          35.162109375,
+          63.505859375,
+          77.82177734375
+        ],
+        "timings": {
+          "total_seconds": 3.8862645430490375,
+          "compile_seconds": 0.005590490999999999,
+          "preparation_seconds": 0.0067462436854839325,
+          "sampling_seconds": 3.874149532057345,
+          "query_seconds": 1.5206426280000225,
+          "decoder_seconds": 0.0,
+          "support_seconds": 0.0
+        },
+        "status": "complete",
+        "completed": 262144,
+        "estimates": {
+          "acceptance": 0.9860763549804688,
+          "error": 1.1444091796875e-05,
+          "conditional_error": 1.160568523834209e-05,
+          "moments": []
+        },
+        "standard_errors": {
+          "acceptance": 0.0002288561623958936,
+          "error": 6.607224274755823e-06,
+          "conditional_error": 6.700519394401773e-06,
+          "moments": []
+        },
+        "draw_sha256": "6112662392f84bc203f5295a7a56722585b685a9d9ba44c1e8b0e91059a9f411",
+        "portable_draw_sha256": "9363b741a581b9b235da86bbd435c930284d578a57468cecf69c78945c6b0026"
+      },
+      {
+        "task": "bh2-T",
+        "revision": "candidate",
+        "repeat": 2,
+        "seed": 20261018,
+        "wall_seconds": 4.03344972524792,
+        "load_after": [
+          33.06689453125,
+          62.6005859375,
+          77.45166015625
+        ],
+        "timings": {
+          "total_seconds": 3.975369540043175,
+          "compile_seconds": 0.005666808000000001,
+          "preparation_seconds": 0.006836830638349056,
+          "sampling_seconds": 3.963031076826155,
+          "query_seconds": 1.53136416199992,
+          "decoder_seconds": 0.0,
+          "support_seconds": 0.0
+        },
+        "status": "complete",
+        "completed": 262144,
+        "estimates": {
+          "acceptance": 0.9860763549804688,
+          "error": 1.1444091796875e-05,
+          "conditional_error": 1.160568523834209e-05,
+          "moments": []
+        },
+        "standard_errors": {
+          "acceptance": 0.0002288561623958936,
+          "error": 6.607224274755823e-06,
+          "conditional_error": 6.700519394401773e-06,
+          "moments": []
+        },
+        "draw_sha256": "6112662392f84bc203f5295a7a56722585b685a9d9ba44c1e8b0e91059a9f411",
+        "portable_draw_sha256": "9363b741a581b9b235da86bbd435c930284d578a57468cecf69c78945c6b0026"
+      },
+      {
+        "task": "bh20-T",
+        "revision": "baseline",
+        "repeat": 0,
+        "seed": 20261016,
+        "wall_seconds": 6.823981513269246,
+        "load_after": [
+          30.7392578125,
+          61.62744140625,
+          77.05712890625
+        ],
+        "timings": {
+          "total_seconds": 6.760025477036834,
+          "compile_seconds": 0.037733723999999996,
+          "preparation_seconds": 0.046196202747523785,
+          "sampling_seconds": 6.690353915095329,
+          "query_seconds": 4.211812669999966,
+          "decoder_seconds": 0.0,
+          "support_seconds": 0.0
+        },
+        "status": "complete",
+        "completed": 262144,
+        "estimates": {
+          "acceptance": 0.9353256225585938,
+          "error": 0.000522613525390625,
+          "conditional_error": 0.0005587503568661038,
+          "moments": []
+        },
+        "standard_errors": {
+          "acceptance": 0.0004803728034837683,
+          "error": 4.4638303043138e-05,
+          "conditional_error": 4.772401717018003e-05,
+          "moments": []
+        },
+        "draw_sha256": "07047793ac4e51afb527e24a85d8d370a87235fe17ec69760eeb1c240c5c8192",
+        "portable_draw_sha256": "2113c181eac1517da684fd25dd458515d5c8262fdc1da15c1f2f5f23188e5c31"
+      },
+      {
+        "task": "bh20-T",
+        "revision": "candidate",
+        "repeat": 0,
+        "seed": 20261016,
+        "wall_seconds": 7.033350761048496,
+        "load_after": [
+          26.55419921875,
+          59.712890625,
+          76.2685546875
+        ],
+        "timings": {
+          "total_seconds": 6.970700599253178,
+          "compile_seconds": 0.038258522999999996,
+          "preparation_seconds": 0.04671144299209118,
+          "sampling_seconds": 6.90018702391535,
+          "query_seconds": 4.297786773000081,
+          "decoder_seconds": 0.0,
+          "support_seconds": 0.0
+        },
+        "status": "complete",
+        "completed": 262144,
+        "estimates": {
+          "acceptance": 0.9353256225585938,
+          "error": 0.000522613525390625,
+          "conditional_error": 0.0005587503568661038,
+          "moments": []
+        },
+        "standard_errors": {
+          "acceptance": 0.0004803728034837683,
+          "error": 4.4638303043138e-05,
+          "conditional_error": 4.772401717018003e-05,
+          "moments": []
+        },
+        "draw_sha256": "07047793ac4e51afb527e24a85d8d370a87235fe17ec69760eeb1c240c5c8192",
+        "portable_draw_sha256": "2113c181eac1517da684fd25dd458515d5c8262fdc1da15c1f2f5f23188e5c31"
+      },
+      {
+        "task": "bh20-T",
+        "revision": "candidate",
+        "repeat": 1,
+        "seed": 20261017,
+        "wall_seconds": 9.509523019194603,
+        "load_after": [
+          27.85986328125,
+          58.89892578125,
+          75.826171875
+        ],
+        "timings": {
+          "total_seconds": 9.440224626101553,
+          "compile_seconds": 0.03750194800000001,
+          "preparation_seconds": 0.045902056619524956,
+          "sampling_seconds": 9.370514397509396,
+          "query_seconds": 5.8263780549999185,
+          "decoder_seconds": 0.0,
+          "support_seconds": 0.0
+        },
+        "status": "complete",
+        "completed": 262144,
+        "estimates": {
+          "acceptance": 0.9340744018554688,
+          "error": 0.00060272216796875,
+          "conditional_error": 0.0006452614125507429,
+          "moments": []
+        },
+        "standard_errors": {
+          "acceptance": 0.00048467279373390896,
+          "error": 4.7935640093896995e-05,
+          "conditional_error": 5.131777490098571e-05,
+          "moments": []
+        },
+        "draw_sha256": "ea894694a889007a5d664c4586cf76f0beed6f6e1b24f1d739671e4c04b33e54",
+        "portable_draw_sha256": "bdd421aa005ac6ecc94b89de2eae09ecd71014f211ba956ff6597e30ba0d23b2"
+      },
+      {
+        "task": "bh20-T",
+        "revision": "baseline",
+        "repeat": 1,
+        "seed": 20261017,
+        "wall_seconds": 9.991558410227299,
+        "load_after": [
+          38.48974609375,
+          60.15380859375,
+          76.05322265625
+        ],
+        "timings": {
+          "total_seconds": 9.875919623300433,
+          "compile_seconds": 0.071272367,
+          "preparation_seconds": 0.08776872139424086,
+          "sampling_seconds": 9.743841384537518,
+          "query_seconds": 6.109809647999844,
+          "decoder_seconds": 0.0,
+          "support_seconds": 0.0
+        },
+        "status": "complete",
+        "completed": 262144,
+        "estimates": {
+          "acceptance": 0.9340744018554688,
+          "error": 0.00060272216796875,
+          "conditional_error": 0.0006452614125507429,
+          "moments": []
+        },
+        "standard_errors": {
+          "acceptance": 0.00048467279373390896,
+          "error": 4.7935640093896995e-05,
+          "conditional_error": 5.131777490098571e-05,
+          "moments": []
+        },
+        "draw_sha256": "ea894694a889007a5d664c4586cf76f0beed6f6e1b24f1d739671e4c04b33e54",
+        "portable_draw_sha256": "bdd421aa005ac6ecc94b89de2eae09ecd71014f211ba956ff6597e30ba0d23b2"
+      },
+      {
+        "task": "bh20-T",
+        "revision": "baseline",
+        "repeat": 2,
+        "seed": 20261018,
+        "wall_seconds": 17.566929212771356,
+        "load_after": [
+          51.7529296875,
+          62.02490234375,
+          76.4111328125
+        ],
+        "timings": {
+          "total_seconds": 17.46242882590741,
+          "compile_seconds": 0.047112185,
+          "preparation_seconds": 0.05797991994768381,
+          "sampling_seconds": 17.37430285383016,
+          "query_seconds": 11.828439383000017,
+          "decoder_seconds": 0.0,
+          "support_seconds": 0.0
+        },
+        "status": "complete",
+        "completed": 262144,
+        "estimates": {
+          "acceptance": 0.9351997375488281,
+          "error": 0.00048828125,
+          "conditional_error": 0.0005221144001598976,
+          "moments": []
+        },
+        "standard_errors": {
+          "acceptance": 0.00048080772632375074,
+          "error": 4.314791717469323e-05,
+          "conditional_error": 4.6136868055635165e-05,
+          "moments": []
+        },
+        "draw_sha256": "41a6fa4aaf7d4b14b3d554bf1c27cf27d840bda264a09736170d3421e4ff9e1e",
+        "portable_draw_sha256": "917a2b290fa0b82224f891d10b7225bbc02826ad9ff966776eda4f512b378199"
+      },
+      {
+        "task": "bh20-T",
+        "revision": "candidate",
+        "repeat": 2,
+        "seed": 20261018,
+        "wall_seconds": 11.923070774413645,
+        "load_after": [
+          57.66748046875,
+          62.86474609375,
+          76.45703125
+        ],
+        "timings": {
+          "total_seconds": 11.809883702546358,
+          "compile_seconds": 0.096962687,
+          "preparation_seconds": 0.12249428126960993,
+          "sampling_seconds": 11.617433379404247,
+          "query_seconds": 7.735164364999799,
+          "decoder_seconds": 0.0,
+          "support_seconds": 0.0
+        },
+        "status": "complete",
+        "completed": 262144,
+        "estimates": {
+          "acceptance": 0.9351997375488281,
+          "error": 0.00048828125,
+          "conditional_error": 0.0005221144001598976,
+          "moments": []
+        },
+        "standard_errors": {
+          "acceptance": 0.00048080772632375074,
+          "error": 4.314791717469323e-05,
+          "conditional_error": 4.6136868055635165e-05,
+          "moments": []
+        },
+        "draw_sha256": "41a6fa4aaf7d4b14b3d554bf1c27cf27d840bda264a09736170d3421e4ff9e1e",
+        "portable_draw_sha256": "917a2b290fa0b82224f891d10b7225bbc02826ad9ff966776eda4f512b378199"
+      }
+    ],
+    "summary": [
+      {
+        "task": "bh2-T",
+        "baseline_sampling_seconds": 3.905671363696456,
+        "candidate_sampling_seconds": 4.0247686402872205,
+        "candidate_change_percent": 3.049341982476661
+      },
+      {
+        "task": "bh20-T",
+        "baseline_sampling_seconds": 9.743841384537518,
+        "candidate_sampling_seconds": 9.370514397509396,
+        "candidate_change_percent": -3.831414862936433
+      }
+    ]
+  }
+}

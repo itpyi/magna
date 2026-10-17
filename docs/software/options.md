@@ -28,9 +28,12 @@ Add `"max_seconds": 600`, for example, to bound the wall-clock time of a run.
 
 Integer limits must be nonnegative (`max_plans` and `max_queries` at least one);
 `max_seconds` is a positive number. Unknown option names are rejected.
-A running query is not interrupted, so a run can overshoot `max_seconds` by one query.
+A running query is not interrupted, so a run can overshoot `max_seconds` until its
+active queries finish (up to one per worker in a parallel run).
 `max_queries` and `max_seconds` count from the start of each `run` call; when `run` also compiles,
 the count includes that preparation.
+With [parallel sampling](sampling.md#parallel-sampling), `max_queries` and `max_seconds`
+remain shared run budgets; network and cache bounds apply separately to each worker.
 
 ## Reading the resource report
 

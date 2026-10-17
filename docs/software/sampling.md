@@ -142,8 +142,69 @@ The recommendation is advice only. The next production run uses whatever you con
 Both pilot results, including their preparation cost and resource summaries, are kept under `pilots`.
 A failed pilot reports `status: "failed"`; an inconclusive one `status: "inconclusive"`.
 
+## Parallel sampling
+
+Use the same run interface with a positive `workers` count:
+
+```python
+from magna import compile_circuit, run
+
+compiled = compile_circuit("physical.magna", task="task.json")
+result = run(compiled, shots=10000, seed=7, workers=4)
+```
+
+```sh
+magna run physical.magna --task task.json --shots 10000 --seed 7 --workers 4
+python scripts/run_task.py examples/bh2-T --shots 10000 --workers 4 --output result.json
+```
+
+The portable task runner also accepts `"workers": 4` in `run.json`; the command-line
+option overrides it. Parallelism applies to physical and importance sampling and
+both history samplers. It does not change the exact per-draw calculation or the
+estimator. Results and requested records are accumulated in draw order.
+
+The compiled circuit prepares its execution plans and reference networks once and
+shares them across workers. Each native worker owns its changing draw state and
+resource counters; sampling a different history does not recompile the shared plans.
+Changing compilation limits or the history sampler rebuilds the preparation before
+workers use it again. Arbitrary observable queries share a synchronized plan cache.
+
+The compiled circuit reuses its threads across sampling batches and repeated runs.
+It retains the largest worker pool it has used. Thread stacks, worker state and small
+resource metadata copies still grow with that count, while the compiled networks,
+decomposition tables and transport data are shared. Workers keep local ownership
+counters for fixed reference resources to avoid contention during sampling.
+Threads wait without sampling between runs; reducing `workers` leaves extra threads
+idle. Releasing the compiled circuit shuts down its threads and releases its plans.
+Small runs may be slower because of thread startup and scheduling.
+Start with a worker count no larger than the available CPU cores,
+then compare `timings.sampling_seconds` and `timings.total_seconds` on your task.
+
+On POSIX systems, a completed compiled circuit can be inherited through `fork`.
+The child starts fresh threads on its next parallel run. Forking while sampling or
+a decoder callback is active is unsupported.
+
+Python decoder callbacks run with the Python interpreter lock. Their call order across
+draws is unspecified; callbacks should return a deterministic result from their inputs
+and configuration, without depending on shared mutable state or invocation order.
+Callbacks that release the interpreter lock can overlap and must be thread-safe.
+Accessing the same compiled circuit from a callback or signal handler while a parallel
+batch is active raises `RuntimeError`.
+Heavy Python decoders can limit the speedup of native sampling.
+
+`max_queries` is shared across the run, and `max_seconds` measures elapsed wall time.
+Other resource bounds apply when preparing networks and evaluating queries. On failure, statistics
+retain the completed prefix in draw order. Workers may already have evaluated later
+draws; those results are discarded, and their work is included in resource counters.
+
 ## Seeds and reproducibility
 
-The same package version and seed reproduce faults, histories and decoder calls exactly.
+With one worker, the same package version and seed reproduce faults, histories and
+decoder calls exactly; the default `workers=1` preserves the sequential random stream.
+Parallel runs use a separate random stream per draw. With deterministic callbacks,
+the same version and seed reproduce the estimates and records across worker counts
+greater than one and across `progress_every` settings. Parallel and sequential runs
+need not draw the same faults or histories. Resource-limit failures can depend on
+thread scheduling, and callback invocation order is not reproducible in parallel.
 Changing the version can change the seeded stream even when the physical distribution is unchanged,
 so compare versions through estimates and uncertainties, not individual draws.

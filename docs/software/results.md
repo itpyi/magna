@@ -77,7 +77,7 @@ Use the standard error of the quantity you care about.
 | Group | Fields |
 |---|---|
 | Identity | `schema_version`, `software_version`, `fingerprints` of circuit, task, controllers, options, sampling, ideal state and recovery |
-| Execution | `route` (`linear` or `nonlinear`), `method`, `seed`, `sampling` configuration, `evaluation` (output mapping, target and recovery identity, metric convention) |
+| Execution | `route` (`linear` or `nonlinear`), `method`, `seed`, requested `workers`, `sampling` configuration, `evaluation` (output mapping, target and recovery identity, metric convention) |
 | Timing | `timings.compile_seconds`, `preparation_seconds` (reference compilation), `sampling_seconds` (the draw loop), `query_seconds`, `decoder_seconds`, `support_seconds` |
 | Resources | `resources.compilation` with the prepared query families and `resource_summary`, and the configured `limits` |
 
@@ -85,6 +85,12 @@ Report preparation and sampling time separately; preparation is paid once per ta
 When `run` receives a compiled circuit, `timings.total_seconds`, `query_seconds`, `decoder_seconds`
 and the `resources` counters cover only that call, while `preparation_seconds` is the compiled circuit's
 one-time preparation.
+
+For parallel runs, `total_seconds` and `sampling_seconds` are elapsed wall time.
+Sampling time includes any worker preparation on the first call. `compile_seconds`,
+`query_seconds`, `decoder_seconds` and `support_seconds` sum the work of all workers,
+so they can exceed wall time. The compilation report describes one prepared task;
+worker copies add memory and preparation costs. See [parallel sampling](sampling.md#parallel-sampling).
 
 ## Inspect before running
 

@@ -12,7 +12,8 @@ class NativeStandaloneTest(unittest.TestCase):
         compiler = shutil.which('clang++') or shutil.which('g++')
         self.assertIsNotNone(compiler, 'C++17 compiler required for native-only acceptance')
         for header in ('evaluate/reference_network.hpp', 'runtime/affine_proposal.hpp',
-                       'runtime/file_execution.hpp', 'runtime/file_enumeration.hpp'):
+                       'runtime/file_execution.hpp', 'runtime/file_enumeration.hpp',
+                       'runtime/file_parallel.hpp'):
             with self.subTest(header=header):
                 result = subprocess.run([compiler, '-std=c++17', '-fsyntax-only', '-x', 'c++',
                     '-I'+str(ROOT/'core/magna/native'), '-'],
@@ -29,7 +30,7 @@ class NativeStandaloneTest(unittest.TestCase):
                 str(ROOT/'tests/native/foundation.cpp'),
                 *(str(p) for p in sorted((ROOT/'core/magna/native').rglob('*.cpp'))
                     if 'bindings' not in p.name), '-o', str(executable)],
-                capture_output=True, text=True, timeout=120)
+                capture_output=True, text=True, timeout=300)
             self.assertEqual(build.returncode, 0, build.stderr)
             result = subprocess.run([str(executable)], capture_output=True,
                                     text=True, timeout=30)
