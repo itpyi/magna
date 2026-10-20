@@ -161,6 +161,12 @@ The task runner also accepts `"workers": 4` in `run.json`; the CLI overrides it.
 Parallelism supports physical and importance sampling and both history samplers,
 preserving exact per-draw calculations and accumulation in draw order.
 
+To compare worker counts through the same task runner, save a benchmark report:
+
+```sh
+python scripts/benchmark_parallel_sampling.py examples/bh2-T --workers 1 2 4 8 --shots 10000 --repeats 3 --output scaling.json
+```
+
 Start with no more workers than available CPU cores and compare
 `timings.sampling_seconds` on your task; small runs may be slower. Repeated
 `run(compiled, ...)` calls reuse shared plans and worker threads. The compiled
