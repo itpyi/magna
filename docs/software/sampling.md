@@ -144,13 +144,12 @@ A failed pilot reports `status: "failed"`; an inconclusive one `status: "inconcl
 
 ## Parallel sampling
 
-Use the same run interface with a positive `workers` count:
+Set a positive `workers` count on the existing run interface (default 1):
 
 ```python
-from magna import compile_circuit, run
+from magna import run
 
-compiled = compile_circuit("physical.magna", task="task.json")
-result = run(compiled, shots=10000, seed=7, workers=4)
+result = run("physical.magna", task="task.json", shots=10000, seed=7, workers=4)
 ```
 
 ```sh
@@ -158,44 +157,27 @@ magna run physical.magna --task task.json --shots 10000 --seed 7 --workers 4
 python scripts/run_task.py examples/bh2-T --shots 10000 --workers 4 --output result.json
 ```
 
-The portable task runner also accepts `"workers": 4` in `run.json`; the command-line
-option overrides it. Parallelism applies to physical and importance sampling and
-both history samplers. It does not change the exact per-draw calculation or the
-estimator. Results and requested records are accumulated in draw order.
+The task runner also accepts `"workers": 4` in `run.json`; the CLI overrides it.
+Parallelism supports physical and importance sampling and both history samplers,
+preserving exact per-draw calculations and accumulation in draw order.
 
-The compiled circuit prepares its execution plans and reference networks once and
-shares them across workers. Each native worker owns its changing draw state and
-resource counters; sampling a different history does not recompile the shared plans.
-Changing compilation limits or the history sampler rebuilds the preparation before
-workers use it again. Arbitrary observable queries share a synchronized plan cache.
+Start with no more workers than available CPU cores and compare
+`timings.sampling_seconds` on your task; small runs may be slower. Repeated
+`run(compiled, ...)` calls reuse shared plans and worker threads. The compiled
+circuit retains its largest pool until released, so lowering `workers` leaves
+extra threads idle and does not reclaim their memory.
 
-The compiled circuit reuses its threads across sampling batches and repeated runs.
-It retains the largest worker pool it has used. Thread stacks, worker state and small
-resource metadata copies still grow with that count, while the compiled networks,
-decomposition tables and transport data are shared. Workers keep local ownership
-counters for fixed reference resources to avoid contention during sampling.
-Threads wait without sampling between runs; reducing `workers` leaves extra threads
-idle. Releasing the compiled circuit shuts down its threads and releases its plans.
-Small runs may be slower because of thread startup and scheduling.
-Start with a worker count no larger than the available CPU cores,
-then compare `timings.sampling_seconds` and `timings.total_seconds` on your task.
+Python decoders hold the interpreter lock and can limit speedup. Callback order is
+unspecified: return deterministic results from inputs and configuration, without
+depending on shared mutable state or call order. Callbacks that release the lock
+can overlap and must be thread-safe. Accessing the same compiled circuit from a
+callback or signal handler during a parallel batch raises `RuntimeError`.
 
-On POSIX systems, a completed compiled circuit can be inherited through `fork`.
-The child starts fresh threads on its next parallel run. Forking while sampling or
-a decoder callback is active is unsupported.
-
-Python decoder callbacks run with the Python interpreter lock. Their call order across
-draws is unspecified; callbacks should return a deterministic result from their inputs
-and configuration, without depending on shared mutable state or invocation order.
-Callbacks that release the interpreter lock can overlap and must be thread-safe.
-Accessing the same compiled circuit from a callback or signal handler while a parallel
-batch is active raises `RuntimeError`.
-Heavy Python decoders can limit the speedup of native sampling.
-
-`max_queries` is shared across the run, and `max_seconds` measures elapsed wall time.
-Other resource bounds apply when preparing networks and evaluating queries. On failure, statistics
-retain the completed prefix in draw order. Workers may already have evaluated later
-draws; those results are discarded, and their work is included in resource counters.
+`max_queries` is shared across the run; `max_seconds` measures elapsed wall time
+(see [resource limits](options.md)). Failures retain the completed prefix in draw
+order. Later draws already evaluated are discarded but count toward resource use.
+On POSIX, an idle compiled circuit can be inherited through `fork`; the child
+starts fresh threads. Forking during sampling or an active callback is unsupported.
 
 ## Seeds and reproducibility
 
