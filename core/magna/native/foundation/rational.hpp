@@ -3,6 +3,7 @@
 #include "scalar.hpp"
 #include "numeric.hpp"
 #include <regex>
+#include <string>
 namespace magic_native {
 inline std::pair<Integer, Integer> integer_divmod(Integer a, Integer b) {
     if(a.neg || b.neg || b.zero()) throw std::invalid_argument("positive integer division required");

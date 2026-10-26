@@ -6,6 +6,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <tuple>
 namespace magic_native {
 struct SourceLocation {
     std::string filename;

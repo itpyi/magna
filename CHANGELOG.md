@@ -9,6 +9,11 @@ Notable changes to magna, newest first.
 
 - Python 3.11 or newer is required. Python 3.10 reached its end of life in October 2026.
 
+### Fixed
+
+- The C++ extension builds on Linux with GCC 15. Some kernel headers used standard-library features
+  whose headers only the macOS standard library included indirectly.
+
 ### Added
 
 - A contribution guide, a release guide, this changelog, a pull request template, and tests on Linux and macOS

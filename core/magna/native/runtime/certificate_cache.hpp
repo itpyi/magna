@@ -1,6 +1,7 @@
 // Bounded complete-certificate snapshots; arbitrary Python serialization is an adapter.
 #pragma once
 #include "../foundation/scalar.hpp"
+#include <iterator>
 #include <list>
 #include <map>
 #include <mutex>
