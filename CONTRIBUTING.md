@@ -6,31 +6,39 @@ and what happens before it is merged.
 
 ## Issues
 
-Report a bug with the circuit file, task, command and output that show it, cut down as far as you can.
+Report a bug with the circuit file, task, command and output that show it, cut down as far as you can,
+together with the magna version (`pip show magna-quantum`, or the commit you built),
+your Python version and your operating system.
 Questions and feature ideas are welcome as issues too.
 For a larger change, especially a new kernel feature, you may open an issue first to discuss the design.
 This is optional, but it can save rework.
 
 ## Build and test
 
-You need Python 3.11 or later with NumPy, and a C++17 compiler.
+You need Python 3.11 or later with development headers, and a C++17 compiler.
+Work in a virtual environment in `.venv`, which `scripts/python.sh` uses automatically:
 
 ```sh
-python -m pip install -r requirements.txt
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
 ./scripts/python.sh scripts/build_native_core.py
 ./scripts/python.sh scripts/project_checks.py --suite current
 ./scripts/python.sh scripts/project_docs.py check
 ```
 
-The build uses `clang++`; pass `--cxx g++` to use GCC. Rebuild after every change under `core/magna/native/`.
+Rebuild after every change under `core/magna/native/`.
+The build and the tests compile with `clang++`. Without it, build with `--cxx g++`
+and run the tests with the environment variable `CXX=g++`.
 The test suite also compiles the native headers on their own and runs some of them under
 the undefined-behaviour sanitizer. Install [Stim](https://github.com/quantumlib/Stim)
-(`python -m pip install stim`) to include the tests that compare gates and records with it.
+(`.venv/bin/python -m pip install stim`) to include the tests that compare gates and records with it.
 
-The installed-wheel tests are skipped unless you point them at an installation:
+The installed-wheel tests are skipped unless you point them at an installation.
+This recipe starts from fresh folders, so a second run tests the new build rather than the old one:
 
 ```sh
-python -m venv /tmp/magna-wheel
+rm -rf /tmp/magna-wheel /tmp/magna-dist
+python3 -m venv /tmp/magna-wheel
 /tmp/magna-wheel/bin/python -m pip wheel --no-deps -w /tmp/magna-dist .
 /tmp/magna-wheel/bin/python -m pip install /tmp/magna-dist/*.whl ./tests/fixtures/basic/decoder_plugin
 MAGNA_INSTALLED_PYTHON=/tmp/magna-wheel/bin/python ./scripts/python.sh -m unittest discover -s tests/core -p test_installed_interface.py
@@ -75,9 +83,10 @@ The pull request template asks for the following.
 1. **CI.** Every push builds and tests on Linux and macOS with Python 3.11 and 3.14,
    and tests an installed wheel. A first-time contributor's CI starts after a maintainer approves it.
 2. **Scope and code.** A maintainer checks that each changed file serves the stated purpose, then reviews the code.
-3. **Benchmarks.** For a change to the C++ kernel or to sampling, the maintainers run a fixed benchmark suite
-   on a fixed machine, comparing `main` with the pull request. Every case that becomes 5% or more slower,
-   or uses 5% or more memory, is reported in the pull request, and the maintainers decide whether the change is worth it.
+3. **Benchmarks.** For a change to the C++ kernel or to sampling, the maintainers run a fixed benchmark suite,
+   kept outside this repository, on a fixed machine, comparing `main` with the pull request.
+   Every case that becomes 5% or more slower, or needs 5% or more additional peak memory,
+   is reported in the pull request, and the maintainers decide whether the change is worth it.
    Benchmarks you run yourself are welcome as additional information.
 4. **Merge.** Pull requests are squash-merged, so each becomes one commit on `main`.
    [RELEASING.md](RELEASING.md) explains how merged changes become a release.

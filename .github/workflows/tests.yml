@@ -9,7 +9,7 @@ permissions:
   contents: read
 concurrency:
   group: tests-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   source:
     name: Source (${{ matrix.os }}, Python ${{ matrix.python }})
@@ -20,8 +20,8 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         python: ['3.11', '3.14']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install -r requirements.txt stim
@@ -35,8 +35,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - run: python -m pip install -r requirements.txt
@@ -50,3 +50,13 @@ jobs:
         env:
           MAGNA_INSTALLED_PYTHON: ${{ runner.temp }}/venv/bin/python
         run: ./scripts/python.sh -m unittest discover -s tests/core -p test_installed_interface.py -v
+  passed:
+    name: Tests passed
+    if: always()
+    needs: [source, wheel]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that every test job succeeded
+        run: |
+          test "${{ needs.source.result }}" = success
+          test "${{ needs.wheel.result }}" = success

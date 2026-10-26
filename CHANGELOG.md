@@ -5,6 +5,12 @@ Notable changes to magna, newest first.
 
 ## Unreleased
 
+### Added
+
+- A contribution guide, a release guide, this changelog, a pull request template, and tests on Linux and macOS
+  with Python 3.11 and 3.14, including a test of the installed wheel, for every pull request.
+- The installation guide shows how to install a released version from its tag.
+
 ### Changed
 
 - Python 3.11 or newer is required. Python 3.10 reached its end of life in October 2026.
@@ -13,11 +19,6 @@ Notable changes to magna, newest first.
 
 - The C++ extension builds on Linux with GCC 15. Some kernel headers used standard-library features
   whose headers only the macOS standard library included indirectly.
-
-### Added
-
-- A contribution guide, a release guide, this changelog, a pull request template, and tests on Linux and macOS
-  with Python 3.11 and 3.14, including a test of the installed wheel, for every pull request.
 
 ## 0.1.0 (2026-10-15)
 

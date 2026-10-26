@@ -80,11 +80,8 @@ git branch -D short-description
    ```
 
 4. On GitHub, open Releases → Draft a new release, choose the tag and paste its `CHANGELOG.md` section as the notes.
-   Leave the release label at None; Pre-release is only for test versions such as `v0.2.0-rc1`.
+   Leave the release label at None; Pre-release is only for test versions published before a real release.
    GitHub marks the newest ordinary release as Latest.
 
-magna is not yet published on PyPI. A release can be installed from its tag:
-
-```sh
-python -m pip install "magna-quantum @ git+https://github.com/itpyi/magna.git@v0.1.0"
-```
+magna is not yet published on PyPI. The [installation guide](docs/software/install.md#install-a-released-version)
+shows how users install a release from its tag.

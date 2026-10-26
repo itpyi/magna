@@ -31,6 +31,7 @@ Changed files outside these parts, with a reason for each (or "none"):
 - Public interface (Python API, command line, result fields): unchanged / changed
 - Circuit or task file format: unchanged / changed
 - Results of a seeded run: unchanged / changed
+- `CHANGELOG.md`: updated / not needed
 
 ## Tests
 
