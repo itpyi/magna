@@ -5,6 +5,8 @@ Notable changes to magna, newest first.
 
 ## Unreleased
 
+## 0.2.0 (2026-10-26)
+
 ### Added
 
 - A contribution guide, a release guide, this changelog, a pull request template, and tests on Linux and macOS
