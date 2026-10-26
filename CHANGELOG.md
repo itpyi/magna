@@ -5,6 +5,10 @@ Notable changes to magna, newest first.
 
 ## Unreleased
 
+### Added
+
+- The README explains how to cite magna.
+
 ## 0.2.0 (2026-10-26)
 
 ### Added
