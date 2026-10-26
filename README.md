@@ -56,6 +56,8 @@ The TQD tasks call their authors' decoder, which is not distributed here;
 
 The package source is in `core/magna` (Python interface plus the C++ kernel in `native/`),
 tests in `tests/core`, tutorial fixtures in `tests/fixtures`.
+[CONTRIBUTING.md](CONTRIBUTING.md) explains how to propose a change,
+and [CHANGELOG.md](CHANGELOG.md) lists the changes in each release.
 
 ## License
 

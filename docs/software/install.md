@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Python 3.10 or newer, with development headers
+- Python 3.11 or newer, with development headers
 - A C++17 compiler (the platform compiler is used; set `CXX` to choose another)
 
 The package contains a compiled C++ extension, so installation builds native code.
