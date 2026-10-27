@@ -69,7 +69,6 @@ PyMethodDef methods[] = {{"literal_program_layout", literal_program_layout, METH
                 "Update runtime budgets and invalidate incompatible preparations."},
         {"begin_file_execution_run", begin_file_execution_run, METH_O,
                 "Start the query and time budgets of a new run on a compiled task."},
-        {"controller_bits_valid", controller_bits_valid, METH_O, "Validate exact integer/bool controller bit values."},
         {"make_file_execution", make_file_execution, METH_VARARGS, "Own file compilation and native sampling state."},
         {"prepare_file_execution", prepare_file_execution, METH_O, "Complete native file query preparation."},
         {"file_execution_state", file_execution_state, METH_VARARGS, "Inspect file execution counters and resources."},

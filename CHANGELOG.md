@@ -8,6 +8,11 @@ Notable changes to magna, newest first.
 ### Added
 
 - The README explains how to cite magna.
+- Native parallel sampling through `run(..., workers=N)`, `magna run --workers N`,
+  and the task runner, with shared execution plans and reusable worker threads.
+  The default `workers=1` preserves the serial seeded stream; parallel runs use
+  a separate stream that is reproducible across worker counts greater than one
+  when callbacks are deterministic.
 
 ## 0.2.0 (2026-10-26)
 

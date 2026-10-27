@@ -73,10 +73,6 @@ class Instruction:
     chain_id: str | None = None
 
 
-def _controller_error(message, source):
-    return ValueError(message if source is None else f"{source}: {message}")
-
-
 @dataclass(frozen=True)
 class ControllerBinding:
     name: str
@@ -102,20 +98,18 @@ class ControllerBinding:
 
     def invoke(self, bits, output_count, source=None):
         """Call the installed decoder on ordered bits and a fresh JSON config."""
+        prefix = "" if source is None else f"{source}: "
         inputs = tuple(bits)
-        if not _native.controller_bits_valid(inputs):
-            raise _controller_error(f"controller {self.name} inputs must be bits", source)
+        if any(type(x) not in (int, bool) or x not in (0, 1) for x in inputs):
+            raise ValueError(prefix + f"controller {self.name} inputs must be bits")
         try:
-            # The common empty configuration still gets a fresh dict each call.
-            config = {} if self._config_json == "{}" else json.loads(self._config_json)
-            result = tuple(self.callback(inputs, config))
+            result = tuple(self.callback(inputs, json.loads(self._config_json)))
         except Exception as exc:
-            raise _controller_error(f"controller {self.name}@{self.version} failed: {exc}", source) from exc
+            raise ValueError(prefix + f"controller {self.name}@{self.version} failed: {exc}") from exc
         if len(result) != output_count:
-            raise _controller_error(
-                f"controller {self.name} returned {len(result)} bits; expected {output_count}", source)
-        if not _native.controller_bits_valid(result):
-            raise _controller_error(f"controller {self.name} returned a non-bit", source)
+            raise ValueError(prefix + f"controller {self.name} returned {len(result)} bits; expected {output_count}")
+        if any(type(x) not in (int, bool) or x not in (0, 1) for x in result):
+            raise ValueError(prefix + f"controller {self.name} returned a non-bit")
         return tuple(map(int, result))
 
 
