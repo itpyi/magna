@@ -8,6 +8,7 @@
 #include <random>
 #include <exception>
 #include <memory>
+#include <new>
 #include "../evaluate/global.hpp"
 #include "../evaluate/boundary_trace.hpp"
 #include "../evaluate/boundary_totals.hpp"

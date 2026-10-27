@@ -2,6 +2,7 @@
 #pragma once
 #include "../foundation/decimal.hpp"
 #include <map>
+#include <optional>
 namespace magic_native {
 struct ProposalEstimate {
     using D = DecimalValue;

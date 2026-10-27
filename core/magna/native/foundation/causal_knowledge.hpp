@@ -2,6 +2,7 @@
 // Compilation, evaluation and causal scheduling share these classical types.
 #pragma once
 #include "bits.hpp"
+#include <limits>
 #include <map>
 #include <limits>
 #include <optional>

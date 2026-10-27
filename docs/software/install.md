@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Python 3.10 or newer, with development headers
+- Python 3.11 or newer, with development headers
 - A C++17 compiler (the platform compiler is used; set `CXX` to choose another)
 
 The package contains a compiled C++ extension, so installation builds native code.
@@ -19,6 +19,17 @@ This installs the `magna` Python package and the `magna` command.
 
 Some packaged tasks need extra packages for their decoders (SciPy, PyMatching, Stim).
 Each task directory lists them in its `requirements.txt`; install those when you run that task.
+
+## Install a released version
+
+Every release has a tag, listed on the [releases page](https://github.com/itpyi/magna/releases).
+To install one without cloning the repository, name its tag, here `vX.Y.Z`:
+
+```sh
+python -m pip install "magna-quantum @ git+https://github.com/itpyi/magna.git@vX.Y.Z"
+```
+
+This installs the package and the `magna` command, not the examples.
 
 ## Check the installation
 

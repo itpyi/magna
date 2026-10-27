@@ -6,6 +6,7 @@
 #include <optional>
 #include <memory>
 #include <random>
+#include <string>
 
 namespace magic_native {
 struct FileFraction {

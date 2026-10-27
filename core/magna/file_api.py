@@ -22,7 +22,7 @@ from .circuit_file import load_circuit
 from .ir import fingerprint
 
 SCHEMA_VERSION = 2
-PACKAGE_VERSION = '0.1.0'
+PACKAGE_VERSION = '0.2.0'
 NATIVE_LIMITS = {'max_path_bits', 'max_doubled_path_bits', 'max_quotient_rank',
                  'max_terms', 'max_table_bytes'}
 RUN_LIMITS = {'max_plans', 'max_seconds', 'max_queries'}

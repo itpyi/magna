@@ -56,6 +56,29 @@ The TQD tasks call their authors' decoder, which is not distributed here;
 
 The package source is in `core/magna` (Python interface plus the C++ kernel in `native/`),
 tests in `tests/core`, tutorial fixtures in `tests/fixtures`.
+[CONTRIBUTING.md](CONTRIBUTING.md) explains how to propose a change,
+and [CHANGELOG.md](CHANGELOG.md) lists the changes in each release.
+
+## Citing magna
+
+If you use magna in your research, please cite the paper that introduces it:
+
+Yifei Wang and Yingfei Gu, *Magna: simulating magic state factories as cheaply as Clifford circuits*,
+[arXiv:2610.22315](https://arxiv.org/abs/2610.22315) (2026).
+
+```bibtex
+@misc{wang2026magna,
+  title         = {{Magna}: simulating magic state factories as cheaply as {Clifford} circuits},
+  author        = {Wang, Yifei and Gu, Yingfei},
+  year          = {2026},
+  eprint        = {2610.22315},
+  archivePrefix = {arXiv},
+  primaryClass  = {quant-ph},
+  url           = {https://arxiv.org/abs/2610.22315},
+}
+```
+
+To make your results reproducible, also state the magna version you used (`magna --version`).
 
 ## License
 
