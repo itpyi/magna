@@ -53,7 +53,7 @@ Options of individual commands:
 | `--sampling FILE` | validate, inspect, run, compare-samplers | Noise proposal, `{"method": "importance", "proposal_scale": "10"}` |
 | `--history-sampler NAME` | validate, inspect, run | `affine_support` (default) or `exact_marginal`; overrides the options file |
 | `--shots N` | run | Number of draws (default 1) |
-| `--workers N` | run | Native sampling threads (positive integer, default 1) |
+| `--workers N` | run | Number of sampling workers (positive integer, default 1) |
 | `--seed N` | run, compare-samplers | Random seed (default 0) |
 | `--progress-every N` | run | Print progress and kappa every N completed draws |
 | `--pilot-shots N` | compare-samplers | Draws per history sampler (at least 2); required |

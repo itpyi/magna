@@ -33,7 +33,8 @@ active queries finish (up to one per worker in a parallel run).
 `max_queries` and `max_seconds` count from the start of each `run` call; when `run` also compiles,
 the count includes that preparation.
 With [parallel sampling](sampling.md#parallel-sampling), `max_queries` and `max_seconds`
-remain shared run budgets; network and cache bounds apply separately to each worker.
+apply to the whole run. Other resource limits apply separately to each worker;
+they do not cap total memory use.
 
 ## Reading the resource report
 

@@ -87,10 +87,10 @@ and the `resources` counters cover only that call, while `preparation_seconds` i
 one-time preparation.
 
 For parallel runs, `total_seconds` and `sampling_seconds` are elapsed wall time.
-Sampling time includes any worker preparation on the first call. `compile_seconds`,
+Sampling time includes startup overhead. `compile_seconds`,
 `query_seconds`, `decoder_seconds` and `support_seconds` sum the work of all workers,
-so they can exceed wall time. The compilation report describes one prepared task;
-worker copies add memory and preparation costs. See [parallel sampling](sampling.md#parallel-sampling).
+so they can exceed wall time. The compilation report does not include all memory
+used by parallel sampling. See [parallel sampling](sampling.md#parallel-sampling).
 
 ## Inspect before running
 

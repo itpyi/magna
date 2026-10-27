@@ -144,7 +144,7 @@ A failed pilot reports `status: "failed"`; an inconclusive one `status: "inconcl
 
 ## Parallel sampling
 
-Set a positive `workers` count on the existing run interface (default 1):
+Set `workers` to a positive integer to use multiple CPU cores (default 1):
 
 ```python
 from magna import run
@@ -158,8 +158,7 @@ python scripts/run_task.py examples/bh2-T --shots 10000 --workers 4 --output res
 ```
 
 The task runner also accepts `"workers": 4` in `run.json`; the CLI overrides it.
-Parallelism supports physical and importance sampling and both history samplers,
-preserving exact per-draw calculations and accumulation in draw order.
+Parallel sampling supports physical and importance sampling and both history samplers.
 
 To compare worker counts through the same task runner, save a benchmark report:
 
@@ -168,31 +167,24 @@ python scripts/benchmark_parallel_sampling.py examples/bh2-T --workers 1 2 4 8 -
 ```
 
 Start with no more workers than available CPU cores and compare
-`timings.sampling_seconds` on your task; small runs may be slower. Repeated
-`run(compiled, ...)` calls reuse shared plans and worker threads. The compiled
-circuit retains its largest pool until released, so lowering `workers` leaves
-extra threads idle and does not reclaim their memory.
+`timings.sampling_seconds` on your task; small runs may be slower. More workers
+can increase memory use; lowering `workers` on an existing compiled circuit may
+not release that memory. See [resource limits](options.md) when setting budgets.
 
-Python decoders hold the interpreter lock and can limit speedup. Callback order is
-unspecified: return deterministic results from inputs and configuration, without
-depending on shared mutable state or call order. Callbacks that release the lock
-can overlap and must be thread-safe. Accessing the same compiled circuit from a
-callback or signal handler during a parallel batch raises `RuntimeError`.
+Python decoders can limit speedup. For reproducible results, decoders should return
+the same output for the same inputs and configuration, without relying on call
+order or shared mutable state. Decoders that release Python's interpreter lock
+must be thread-safe. Calling the same compiled circuit from a decoder or signal
+handler during parallel sampling raises `RuntimeError`.
 
-`max_queries` is shared across the run; `max_seconds` measures elapsed wall time
-(see [resource limits](options.md)). Failures retain the completed prefix in draw
-order. Later draws already evaluated are discarded but count toward resource use.
-On POSIX, an idle compiled circuit can be inherited through `fork`; the child
-starts fresh threads. Forking during sampling or an active callback is unsupported.
+On POSIX, only use `fork` when sampling and decoder calls are idle.
 
 ## Seeds and reproducibility
 
-With one worker, the same package version and seed reproduce faults, histories and
-decoder calls exactly; the default `workers=1` preserves the sequential random stream.
-Parallel runs use a separate random stream per draw. With deterministic callbacks,
-the same version and seed reproduce the estimates and records across worker counts
-greater than one and across `progress_every` settings. Parallel and sequential runs
-need not draw the same faults or histories. Resource-limit failures can depend on
-thread scheduling, and callback invocation order is not reproducible in parallel.
+The default `workers=1` keeps the existing seeded results. For completed parallel
+runs with deterministic decoders, the same package version, environment and seed
+reproduce estimates and records across worker counts greater than one and across
+`progress_every` settings. Results with one worker need not match parallel results.
+Decoder call order and runs that hit resource limits are not reproducible in this way.
 Changing the version can change the seeded stream even when the physical distribution is unchanged,
 so compare versions through estimates and uncertainties, not individual draws.
