@@ -517,6 +517,17 @@ public:
         result.acceptance = session
                 ? completed_total(*engine, "acceptance", frame, *session)
                 : reference_total_coordinates(*engine, "acceptance", frame, accepted_rows, outcomes, sector);
+        if(result.acceptance.zero()) {
+            // A positive accepted state with zero trace has zero output moments
+            // and target overlap. History sampling and all decoders are complete.
+            result.moments.resize(task.boundaries.observables.size());
+            if(source.target) {
+                result.target_normalization = target_normalization;
+                result.target_success = Scalar();
+                result.error = Scalar();
+            }
+            return result;
+        }
         if(!task.boundaries.observables.empty()) {
             auto events = numerical ? record_names(*numerical) : known;
             events.insert(events.end(), task.boundaries.selection.begin(), task.boundaries.selection.end());

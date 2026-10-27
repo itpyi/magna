@@ -9,6 +9,10 @@ Notable changes to magna, newest first.
 
 - The README explains how to cite magna.
 
+### Changed
+
+- Skip output-moment and target-overlap queries when the accepted mass is exactly zero.
+
 ## 0.2.0 (2026-10-26)
 
 ### Added
