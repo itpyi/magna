@@ -14,6 +14,10 @@ Notable changes to magna, newest first.
   a separate stream that is reproducible across worker counts greater than one
   when callbacks are deterministic.
 
+### Changed
+
+- Python decoder functions are called with less overhead, so sampling with a fast decoder is faster.
+
 ## 0.2.0 (2026-10-26)
 
 ### Added
