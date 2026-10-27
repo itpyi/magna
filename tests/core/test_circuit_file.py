@@ -148,6 +148,50 @@ class CircuitFileTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "broken"):
                 binding.invoke((), 1)
 
+    def test_empty_controller_config_is_fresh_and_errors_keep_source_and_cause(self):
+        configs = []
+        def callback(bits, config):
+            self.assertEqual(config, {})
+            configs.append(config)
+            config['changed'] = True
+            return (True, False)
+        binding = ControllerBinding('decoder', 'v1', callback)
+        for _ in range(3):
+            self.assertEqual(binding.invoke((0, 1), 2), (1, 0))
+        self.assertEqual(len({id(config) for config in configs}), 3)
+        with self.assertRaisesRegex(ValueError, 'test-source: controller decoder inputs must be bits'):
+            binding.invoke((0.0,), 2, source='test-source')
+        with self.assertRaisesRegex(ValueError, 'test-source: controller decoder returned 2 bits; expected 1'):
+            binding.invoke((), 1, source='test-source')
+        invalid = ControllerBinding('decoder', 'v1', lambda bits, config: (0.0,))
+        with self.assertRaisesRegex(ValueError, 'test-source: controller decoder returned a non-bit'):
+            invalid.invoke((), 1, source='test-source')
+        original = RuntimeError('decoder error')
+        def fail(bits, config):
+            raise original
+        broken = ControllerBinding('decoder', 'v1', fail)
+        with self.assertRaisesRegex(ValueError, 'test-source: controller decoder@v1 failed: decoder error') as caught:
+            broken.invoke((), 1, source='test-source')
+        self.assertIs(caught.exception.__cause__, original)
+
+    def test_controller_bit_validation_preserves_exact_type_and_range_checks(self):
+        class IntegerSubclass(int):
+            pass
+        calls = []
+        echo = ControllerBinding('echo', '1', lambda bits, config: calls.append(bits) or bits)
+        self.assertEqual(echo.invoke(iter((0, True, False, 1)), 4), (0, 1, 0, 1))
+        self.assertIs(calls[0][1], True)
+        self.assertEqual(echo.invoke((), 0), ())
+        calls.clear()
+        for bit in (-1, 2, 1 << 200, -(1 << 200), 0.0, '0', None, IntegerSubclass(1)):
+            with self.subTest(bit=bit):
+                with self.assertRaisesRegex(ValueError, 'inputs must be bits'):
+                    echo.invoke((bit,), 1)
+                invalid = ControllerBinding('invalid', '1', lambda bits, config: (bit,))
+                with self.assertRaisesRegex(ValueError, 'returned a non-bit'):
+                    invalid.invoke((), 1)
+        self.assertEqual(calls, [])
+
     def test_s_and_t_are_distinct_and_aliases_are_canonical(self):
         c = parse_circuit("S 0\nT 0\nS_DAG 0\nT_DAG 0\nCNOT 0 1\nCCX 0 1 2\n"
                           "CCZ 0 1 2\nCS_DAG 0 1\nCH 1 2\nMZ 0\n")

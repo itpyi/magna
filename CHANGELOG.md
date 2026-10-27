@@ -9,6 +9,11 @@ Notable changes to magna, newest first.
 
 - The README explains how to cite magna.
 
+### Changed
+
+- Reduce Python decoder adapter overhead while preserving callback results,
+  bit validation, fresh configuration dictionaries, and error reporting.
+
 ## 0.2.0 (2026-10-26)
 
 ### Added
