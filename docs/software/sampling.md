@@ -144,8 +144,49 @@ The recommendation is advice only. The next production run uses whatever you con
 Both pilot results, including their preparation cost and resource summaries, are kept under `pilots`.
 A failed pilot reports `status: "failed"`; an inconclusive one `status: "inconclusive"`.
 
+## Parallel sampling
+
+Set `workers` to a positive integer to use multiple CPU cores (default 1):
+
+```python
+from magna import run
+
+result = run("physical.magna", task="task.json", shots=10000, seed=7, workers=4)
+```
+
+```sh
+magna run physical.magna --task task.json --shots 10000 --seed 7 --workers 4
+python scripts/run_task.py examples/bh2-T --shots 10000 --workers 4 --output result.json
+```
+
+The task runner also accepts `"workers": 4` in `run.json`; the CLI overrides it.
+Parallel sampling supports physical and importance sampling and both history samplers.
+
+To compare worker counts through the same task runner, save a benchmark report:
+
+```sh
+python scripts/benchmark_parallel_sampling.py examples/bh2-T --workers 1 2 4 8 --shots 10000 --repeats 3 --output scaling.json
+```
+
+Start with no more workers than available CPU cores and compare
+`timings.sampling_seconds` on your task; small runs may be slower. More workers
+can increase memory use; lowering `workers` on an existing compiled circuit may
+not release that memory. See [resource limits](options.md) when setting budgets.
+
+Python decoders can limit speedup. For reproducible results, decoders should return
+the same output for the same inputs and configuration, without relying on call
+order or shared mutable state. Decoders that release Python's interpreter lock
+must be thread-safe. Calling the same compiled circuit from a decoder or signal
+handler during parallel sampling raises `RuntimeError`.
+
+On POSIX, only use `fork` when sampling and decoder calls are idle.
+
 ## Seeds and reproducibility
 
-The same package version and seed reproduce faults, histories and decoder calls exactly.
+The default `workers=1` keeps the existing seeded results. For completed parallel
+runs with deterministic decoders, the same package version, environment and seed
+reproduce estimates and records across worker counts greater than one and across
+`progress_every` settings. Results with one worker need not match parallel results.
+Decoder call order and runs that hit resource limits are not reproducible in this way.
 Changing the version can change the seeded stream even when the physical distribution is unchanged,
 so compare versions through estimates and uncertainties, not individual draws.

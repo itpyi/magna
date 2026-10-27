@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 NATIVE = ROOT / 'core' / 'magna' / 'native'
 ORACLES = ROOT / 'tests' / 'native' / 'python'
 FLAGS = ['-std=c++17', '-O3', '-DNDEBUG', '-Wall', '-Wextra', '-Wno-missing-field-initializers',
-         '-Wno-unused-function', '-fPIC', '-shared']
+         '-Wno-unused-function', '-fPIC', '-shared', '-pthread']
 NAME = '_native_testing'
 
 

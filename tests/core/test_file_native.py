@@ -135,6 +135,33 @@ class NativeFileRuntimeTests(unittest.TestCase):
             self.assertAlmostEqual(result["estimates"]["moments"][j], statistics.mean(ms))
             self.assertAlmostEqual(result["standard_errors"]["moments"][j], se(ms))
 
+    def test_scientific_summary_matches_independent_statistics_across_scale_changes(self):
+        # Offsets near +/-500 cross the accumulator's scale boundary; the wider
+        # offsets exercise summaries whose ordinary representation cannot exist.
+        exponents = (-2, -1, 0, 1, 2, 3, 3, 1)
+        rows = [(math.ldexp(.5, exponent), math.ldexp((j % 3) / 8, exponent),
+                 math.ldexp((-1)**j * .25, exponent)) for j, exponent in enumerate(exponents)]
+        columns = list(zip(*rows))
+        ratio = statistics.mean(columns[1]) / statistics.mean(columns[0])
+        se = lambda values: statistics.stdev(values) / math.sqrt(len(values))
+        estimates = [statistics.mean(columns[0]), statistics.mean(columns[1]), ratio,
+                     statistics.mean(columns[2])]
+        errors = [se(columns[0]), se(columns[1]),
+                  se([e - ratio*a for a, e, _ in rows]) / statistics.mean(columns[0]), se(columns[2])]
+        for offset in (-1100, -501, 0, 499, 1100):
+            with self.subTest(offset=offset):
+                shifted = [[(mantissa, exponent + offset) for mantissa, exponent in map(math.frexp, row)]
+                           for row in rows]
+                result = native_testing.load().summarize_scientific_draws(shifted)
+                for field, expected in (('estimates_scientific', estimates),
+                                        ('standard_errors_scientific', errors)):
+                    actual = result[field]
+                    values = [actual['acceptance'], actual['error'], actual['conditional_error'],
+                              actual['moments'][0]]
+                    for j, (value, reference) in enumerate(zip(values, expected)):
+                        normalized = math.ldexp(value['mantissa'], value['exponent2'] - (0 if j == 2 else offset))
+                        self.assertAlmostEqual(normalized, reference, places=14, msg=(offset, field, j))
+
     def test_summary_missing_metrics_single_draw_and_zero_acceptance(self):
         self.assertEqual(native_testing.load().summarize_file_draws([]), dict(estimates=None, standard_errors=None))
         result = native_testing.load().summarize_file_draws([(0., None, ())])
