@@ -135,7 +135,10 @@ class ParallelSamplingTests(unittest.TestCase):
                 self.assertEqual(set(records), {0, 1})
                 self.assertAlmostEqual(sum(records)/len(records), record_mean, delta=.05)
                 if sampling is None:
-                    self.assertEqual(result['estimates']['error'], sum(records)/len(records))
+                    # Online means can round differently from dividing the final
+                    # count, especially when long double has binary64 precision.
+                    self.assertAlmostEqual(result['estimates']['error'],
+                                           sum(records)/len(records), delta=1e-12)
 
     def test_nonlinear_python_controller_keeps_records_and_feedback_consistent(self):
         calls = []
@@ -158,8 +161,9 @@ class ParallelSamplingTests(unittest.TestCase):
                 for a, b, c in result['sampled_records']:
                     self.assertEqual(c, a & b)
                 self.assertEqual(result['estimates']['acceptance'], 1)
-                self.assertEqual(result['estimates']['error'],
-                                 sum(row[2] for row in result['sampled_records'])/result['completed'])
+                self.assertAlmostEqual(result['estimates']['error'],
+                                       sum(row[2] for row in result['sampled_records'])/result['completed'],
+                                       delta=1e-12)
 
     def test_compiled_circuit_can_switch_between_serial_and_parallel_runs(self):
         circuit = parse_circuit('H 0\nT 0\nM(1/7) 0\nCX rec[-1] 1\nX_ERROR(1/5) 1')
