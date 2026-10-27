@@ -11,8 +11,7 @@ Notable changes to magna, newest first.
 
 ### Changed
 
-- Reduce Python decoder adapter overhead while preserving callback results,
-  bit validation, fresh configuration dictionaries, and error reporting.
+- Python decoder functions are called with less overhead, so sampling with a fast decoder is faster.
 
 ## 0.2.0 (2026-10-26)
 
