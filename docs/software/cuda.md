@@ -108,3 +108,37 @@ The CUDA sampler uses its own random number generator, Philox4x32-10, indexed by
 The same seed and offset give the same faults whatever the batch size;
 estimates can still differ in the last digits, because batches are summed in a different order.
 CPU and GPU runs with the same seed draw different faults.
+
+## Multiple GPUs on one host
+
+Use `MultiGpuCudaSampler` for long sampling jobs on explicitly selected GPUs.
+It supports the same tasks and sampling methods as `CudaSampler`. Save this as a Python script:
+
+```python
+from magna import compile_circuit
+from magna.cuda_multi import MultiGpuCudaSampler
+
+if __name__ == "__main__":
+    compiled = compile_circuit(
+        "examples/bh2-T/physical.magna", task="examples/bh2-T/task.json",
+        sampling={"method": "importance", "proposal_scale": "1000/7"},
+    )
+    with MultiGpuCudaSampler(compiled, devices=(0, 1, 2, 3)) as sampler:
+        result = sampler.run(16_777_216, seed=7)
+        print(result["estimates"], result["standard_errors"])
+```
+
+Select GPUs allocated to your job; IDs are logical IDs after `CUDA_VISIBLE_DEVICES` filtering.
+The main guard is required because workers start with Python's `spawn` method.
+Repeated calls reuse the workers. Use the context manager or call `close()` when finished.
+
+`run(shots, *, seed=0, offset=0, batch_size=65536)` takes a total shot count across all devices.
+The batch size is per device, with the same 1,000,000 limit as the single-GPU sampler.
+Results add `devices`, `shards` (draw intervals and elapsed times), and
+`timings.total_seconds`, `timings.startup_seconds`, and `timings.sampling_seconds`.
+Shard times overlap. Changing device count preserves fault draws, but the last digits
+of estimates and standard errors can differ because reduction order changes.
+
+The optional constructor argument `timeout` limits each run, including worker startup.
+A worker failure or timeout closes the pool and raises; create a new sampler before retrying.
+Worker cleanup may add time beyond the timeout.

@@ -45,6 +45,21 @@ class _Moments:
 _EMPTY = _Moments(0, np.zeros(2), np.zeros(3))
 
 
+def _run_arguments(shots, seed, offset, batch_size, max_batch_size=1_000_000):
+    """Shared bounds for single-device and distributed draw intervals."""
+    shots, seed, offset = _uint64(shots, 'shots'), _uint64(seed, 'seed'), _uint64(offset, 'offset')
+    if shots and offset > MASK64-(shots-1):
+        raise ValueError('global shot ID overflows uint64')
+    if isinstance(batch_size, (bool, np.bool_)):
+        raise TypeError('batch_size must be an integer')
+    batch_size = index(batch_size)
+    if not 1 <= batch_size <= max_batch_size:
+        raise ValueError('batch_size outside supported range')
+    if shots > (1 << 53):
+        raise ValueError('summary shot count exceeds exact float64 count range')
+    return shots, seed, offset, batch_size
+
+
 def _fma(a, b, c):
     if hasattr(math, 'fma'):
         return math.fma(a, b, c)
@@ -179,16 +194,8 @@ class CudaSampler:
         so the chunk size does not change which faults are drawn.
         """
         self._experiment.validate()
-        shots, seed, offset = _uint64(shots, 'shots'), _uint64(seed, 'seed'), _uint64(offset, 'offset')
-        if shots and offset > MASK64-(shots-1):
-            raise ValueError('global shot ID overflows uint64')
-        if isinstance(batch_size, bool):
-            raise TypeError('batch_size must be an integer')
-        batch_size = index(batch_size)
-        if not 1 <= batch_size <= self._experiment.metadata['max_shots']:
-            raise ValueError('batch_size outside supported range')
-        if shots > (1 << 53):
-            raise ValueError('summary shot count exceeds exact float64 count range')
+        shots, seed, offset, batch_size = _run_arguments(
+            shots, seed, offset, batch_size, self._experiment.metadata['max_shots'])
         start = perf_counter()
         totals = _merge_moments(self._chunks(shots, seed, offset, batch_size))
         return dict(status='complete', requested=shots, completed=shots,

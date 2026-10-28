@@ -21,7 +21,7 @@ INSTALLED_PYTHON = os.environ.get("MAGNA_INSTALLED_PYTHON")
 class InstalledInterfaceTests(unittest.TestCase):
     def test_installed_cuda_sources_without_optional_dependencies(self):
         self.python('''
-import importlib.abc, sys
+import importlib.abc, importlib.util, sys
 class NoOptionalImports(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path=None, target=None):
         if fullname.split('.')[0] in {'numpy', 'cupy'}:
@@ -29,6 +29,7 @@ class NoOptionalImports(importlib.abc.MetaPathFinder):
 sys.meta_path.insert(0, NoOptionalImports())
 from magna import _native, parse_circuit, run
 from magna._cuda_source import _read_cuda_source
+assert importlib.util.find_spec('magna.cuda_multi') is not None
 for name in ('noise_sampling.cu', 'probability_queries.cu', 'statistics.cu'):
     source = _read_cuda_source(name)
     assert '__global__' in source, name
