@@ -109,7 +109,8 @@ class ConditionalNoiseTests(unittest.TestCase):
                 self.assertLessEqual(state['persistent_networks'], 3)
                 self.assertEqual(state['reference_network_resource_constructions'], 0)
                 self.assertEqual(state['reference_network_coordinate_constructions'], 0)
-                self.assertEqual(state['reference_network_evaluations']['fidelity'], 512)
+                nonzero = sum(any(d['exact']['acceptance']['coefficients']) for d in draws)
+                self.assertEqual(state['reference_network_evaluations']['fidelity'], nonzero)
                 self.assertEqual(state['reference_network_evaluations']['acceptance'], 512)
 
     def test_supplied_candidate_respects_guard_and_causal_chain(self):

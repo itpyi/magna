@@ -13,6 +13,7 @@ Notable changes to magna, newest first.
 
 ### Changed
 
+- Skip output-moment and target-overlap queries when the accepted mass is exactly zero.
 - Python decoder functions are called with less overhead, so sampling with a fast decoder is faster.
 
 ## 0.2.0 (2026-10-26)
