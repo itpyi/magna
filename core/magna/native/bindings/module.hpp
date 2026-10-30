@@ -46,6 +46,7 @@
 #include "../runtime/sampling.hpp"
 #include "../runtime/low_weight.hpp"
 #include "../runtime/cuda_plan.hpp"
+#include "../runtime/cuda_history.hpp"
 using namespace magic_native;
 namespace {
 struct Object {
@@ -316,6 +317,7 @@ PyObject* contract_ket(PyObject*, PyObject* arg) {
 #include "cuda_experiment_bindings.hpp"
 #include "cuda_noise_bindings.hpp"
 #include "cuda_query_bindings.hpp"
+#include "cuda_history_bindings.hpp"
 #include "file_enumeration_bindings.hpp"
 #include "branch_bindings.hpp"
 #include "proposal_bindings.hpp"

@@ -142,6 +142,33 @@ class ExactGpuQueryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             cpu_evaluate(query, invalid)
 
+    def test_large_dynamic_gauss_matches_the_native_network(self):
+        folder = ROOT / 'examples/bh100-T'
+        experiment = CudaExperiment(compile_circuit(folder / 'physical.magna',
+            task=folder / 'task.json', options={'max_quotient_rank': 12, 'max_terms': 4096}))
+        prepared = GpuQueries(experiment)
+        raw = prepared.metadata[0]
+        guard = np.frombuffer(raw['guards'], '<u4')[0]
+        offsets = np.frombuffer(raw['feature_offsets'], '<u4')
+        words = np.frombuffer(raw['feature_words'], '<u4')
+        masks = np.frombuffer(raw['feature_masks'], '<u8')
+        k = int(offsets[guard])
+        varied = experiment.base_frame.copy()
+        mask = int(masks[k])
+        varied[words[k]] ^= np.uint64(mask & -mask)
+        frames = np.stack([experiment.base_frame, varied,
+                           experiment.base_frame ^ experiment.columns[0]])
+        plans = [dict(plan, mode=4) for plan in prepared.metadata]
+        query = GpuQueries(experiment, plans)
+        actual = evaluate_host(query, frames)
+        expected = evaluate_frames(experiment, frames)
+        normalization = ExactScalar(*experiment.metadata['target_normalization'])
+        for gpu, cpu in zip(tuples(actual), expected):
+            acceptance = ExactScalar(*gpu[0])
+            error = acceptance*normalization - ExactScalar(*gpu[1])
+            self.assertEqual(acceptance, ExactScalar(*cpu[1]))
+            self.assertEqual(error, ExactScalar(*cpu[2]))
+
     def test_reconfigured_plan_is_rejected_before_gpu_launch(self):
         compiled = compile_circuit(parse_circuit('H 0\nT 0'), ideal_state=parse_circuit('H 0\nT 0'))
         sampler = CudaSampler(compiled)

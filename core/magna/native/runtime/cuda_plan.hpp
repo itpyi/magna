@@ -126,8 +126,10 @@ inline CudaNoiseTables cuda_noise_tables(const FileNoisePlan& noise) {
 
 // Rejects unsupported tasks, prepares the task's networks and packs every noise action.
 inline CudaExperimentPlan build_cuda_experiment(CompiledExperiment& run) {
-    if(run.needs_history() || run.nonlinear() || !run.source.guarded_ids.empty() || run.noise.guarded)
-        throw std::invalid_argument("CUDA sampler does not support tasks that sample a measurement history");
+    if(!run.source.guarded_ids.empty() || run.noise.guarded)
+        throw std::invalid_argument("CUDA sampler does not support conditional noise");
+    if(!run.task.boundaries.sample_records.empty())
+        throw std::invalid_argument("CUDA sampler does not support sample_records");
     CudaExperimentPlan out;
     cuda_prepare_likelihood(run.noise, out);
     if(!run.task.boundaries.observables.empty())
@@ -242,7 +244,7 @@ inline CudaQueryAffine cuda_query_xor(CudaQueryAffine a, const CudaQueryAffine& 
 }
 struct CudaQueryPlan {
     size_t n = 0, frame_words = 0, input_bits = 0;
-    int mode = 0; // 0 zero; 1 dynamic exact Gauss; 2 static Gauss; 3 exact phase histogram.
+    int mode = 0; // 0 zero; 1 small Gauss; 2 static Gauss; 3 histogram; 4 dynamic Gauss; 5 entry sum.
     int constant = 0, power_sqrt2 = 0, output_power = 0;
     size_t phase_rank = 0;
     std::vector<CudaQueryAffine> features;
@@ -254,6 +256,10 @@ struct CudaQueryPlan {
     std::vector<int32_t> steps;
     std::vector<uint32_t> step_offsets, step_indices;
     std::vector<uint8_t> step_tags;
+    std::vector<CudaQueryPlan> components;
+    std::vector<Scalar> weights;
+    std::shared_ptr<const CudaQueryPlan> shared_base;
+    size_t base_index = 0, disabled_caps = 0;
     CudaQueryPlan() : feature_index([](const auto& a, const auto& b) {
         if(a.first != b.first) return BitsLess{}(a.first, b.first);
         return a.second < b.second;
@@ -343,35 +349,116 @@ inline int cuda_query_actual(const CudaQueryPlan& p, const std::vector<uint8_t>&
     return mod8(phase);
 }
 
-inline CudaQueryPlan build_cuda_query(const CompiledExperiment& run, const CudaExperimentPlan& experiment,
-        const FileBoundary& engine, const char* purpose, bool target) {
+// A binary Fourier multiplier enforces an affine cap without changing the
+// certified phase resource: delta(Lx=b) = sum_y (-1)^(y(Lx+b))/2.
+inline CudaQueryPlan cuda_query_cap(const CudaQueryPlan& mother, const std::vector<Bits>& rows,
+        const std::vector<CudaQueryAffine>& rhs) {
+    CudaQueryPlan out = mother;
+    size_t before = mother.n, old_words = (before + 63) / 64;
+    out.n += rows.size();
+    if(out.n > 4096) throw std::invalid_argument("CUDA history Fourier cap dimension exceeds 4096");
+    out.mode = out.n <= 64 ? 1 : 4;
+    out.phase_rank = 0;
+    out.guards.clear(); out.steps.clear(); out.step_offsets.clear(); out.step_indices.clear(); out.step_tags.clear();
+    size_t words = (out.n + 63) / 64;
+    out.upper.assign(out.n * words, 0);
+    for(size_t j = 0; j < before; j++)
+        std::copy(mother.upper.begin() + j * old_words, mother.upper.begin() + (j + 1) * old_words, out.upper.begin() + j * words);
+    out.magic_masks.assign(mother.magic.size() / 4 * words, 0);
+    for(size_t j = 0; j < mother.magic.size() / 4; j++)
+        std::copy(mother.magic_masks.begin() + j * old_words, mother.magic_masks.begin() + (j + 1) * old_words,
+                out.magic_masks.begin() + j * words);
+    for(size_t j = 0, index = before; j < rows.size(); j++) {
+        rows[j].each([&](size_t bit) { out.upper[bit * words + index / 64] ^= uint64_t(1) << (index % 64); });
+        out.linear.push_back(0);
+        out.linear_shift.push_back(out.feature(rhs[j]));
+        out.power_sqrt2 -= 2;
+        index++;
+    }
+    return out;
+}
+
+inline CudaQueryPlan cuda_query_entries(const CudaQueryPlan& mother, const PhaseResource& resource) {
     CudaQueryPlan out;
-    out.frame_words = 2 * experiment.words;
+    out.mode = 5; out.n = mother.n; out.frame_words = mother.frame_words; out.input_bits = mother.input_bits;
+    for(const auto& entry : resource_entries(resource)) {
+        if(entry.coefficient.zero()) continue;
+        auto component = mother;
+        auto linear = resource.quotient.linear;
+        auto upper = resource.quotient.upper;
+        PhaseTerms parities;
+        for(const auto& [mask, coefficient] : entry.parities)
+            parities.emplace_back(xors(resource.quotient.axes, mask), 2 * mod4(coefficient));
+        phase_add_even(linear, upper, parities);
+        component.linear.assign(linear.begin(), linear.end());
+        size_t words = (component.n + 63) / 64;
+        component.upper.assign(component.n * words, 0);
+        for(size_t j = 0; j < component.n; j++)
+            std::copy(upper[j].w.begin(), upper[j].w.end(), component.upper.begin() + j * words);
+        std::vector<Bits> equations;
+        std::vector<CudaQueryAffine> rhs;
+        for(const auto& [mask, value] : entry.constraints) {
+            equations.push_back(xors(resource.quotient.axes, mask));
+            rhs.push_back({{}, value});
+        }
+        out.components.push_back(cuda_query_cap(component, equations, rhs));
+        out.weights.push_back(entry.coefficient);
+    }
+    return out;
+}
+inline CudaQueryPlan cuda_query_scale(CudaQueryPlan query, const Scalar& scale) {
+    if(!query.mode || (scale.c == Scalar(1).c && scale.power == 0)) return query;
+    if(query.mode == 5) {
+        for(auto& weight : query.weights) weight = weight * scale;
+        return query;
+    }
+    CudaQueryPlan result;
+    result.mode = 5; result.n = query.n; result.frame_words = query.frame_words; result.input_bits = query.input_bits;
+    result.components.push_back(std::move(query)); result.weights.push_back(scale);
+    return result;
+}
+
+inline CudaQueryPlan build_cuda_query(const CompiledExperiment& run, const CudaExperimentPlan& experiment,
+        const FileBoundary& engine, const char* purpose, bool target,
+        const CompiledNetwork* supplied = nullptr, const std::vector<CudaQueryAffine>* outcomes = nullptr,
+        size_t auxiliary_words = 0, const std::vector<Bits>* extra_changes = nullptr,
+        const PhaseContraction* pullback = nullptr, bool matrix_only = false) {
+    CudaQueryPlan out;
+    out.frame_words = 2 * experiment.words + auxiliary_words;
     out.input_bits = experiment.frame_bits;
     const auto& parent = *engine.reference_networks.at(purpose);
-    const auto& network = *parent.reference;
-    if(!network.boundary.keep.empty() || !parent.closed.empty() || parent.capped_history)
+    const auto& network = supplied ? *supplied : *parent.reference;
+    if((!matrix_only && !pullback && !network.boundary.keep.empty()) ||
+            (!outcomes && (!parent.closed.empty() || parent.capped_history)))
         throw std::invalid_argument("CUDA exact queries require scalar fixed-history boundaries");
     if(network.traced.clifford.zero) return out;
     const auto* certificate = network.fixed_certificate();
     if(!certificate) throw std::invalid_argument("CUDA exact query requires a fixed phase certificate");
     const auto& resource = certificate->reference;
     out.n = network.restricted.clifford.n;
-    out.phase_rank = resource.quotient.axes.size();
-    if(out.n > 1024) throw std::invalid_argument("CUDA exact query dimension exceeds 1024");
-    if(out.phase_rank && out.n > 12)
+    out.phase_rank = pullback ? 0 : resource.quotient.axes.size();
+    if(out.n > (outcomes ? 4096 : 1024))
+        throw std::invalid_argument(outcomes ? "CUDA history query dimension exceeds 4096" : "CUDA exact query dimension exceeds 1024");
+    if(!matrix_only && outcomes && out.phase_rank && out.n > 12) {
+        auto mother = build_cuda_query(run, experiment, engine, purpose, target, supplied, outcomes,
+                auxiliary_words, extra_changes, pullback, true);
+        return cuda_query_entries(mother, resource);
+    }
+    if(!matrix_only && out.phase_rank && out.n > 12)
         throw std::invalid_argument("CUDA non-Clifford histogram dimension exceeds 12; no CPU fallback");
     if(resource.quotient.linear.size() != out.n)
         throw std::logic_error("CUDA fixed certificate does not use the scalar query domain");
-    if(!out.phase_rank) {
+    if(!matrix_only && !out.phase_rank && !pullback) {
         const auto& entries = resource_entries(resource);
         if(entries.size() != 1 || !entries[0].constraints.empty() || !entries[0].parities.empty() ||
                 entries[0].coefficient.c != Scalar(1).c || entries[0].coefficient.power != 0)
             throw std::invalid_argument("CUDA Gauss query requires the certified unit entry");
     }
-    out.mode = out.phase_rank ? 3 : (out.n <= 64 ? 1 : 2);
-    const auto& base = out.phase_rank ? network.restricted.clifford.linear : resource.quotient.linear;
-    const auto& base_upper = out.phase_rank ? network.restricted.clifford.upper : resource.quotient.upper;
+    out.mode = pullback ? 2 : (matrix_only ? 4 : (out.phase_rank ? 3 : (out.n <= 64 ? 1 : 2)));
+    const auto& base = pullback ? pullback->pulled_reference.linear :
+            (out.phase_rank && !matrix_only ? network.restricted.clifford.linear : resource.quotient.linear);
+    const auto& base_upper = pullback ? pullback->pulled_reference.upper :
+            (out.phase_rank && !matrix_only ? network.restricted.clifford.upper : resource.quotient.upper);
     out.linear.assign(base.begin(), base.end());
     size_t words = (out.n + 63) / 64;
     out.upper.assign(out.n * words, 0);
@@ -387,9 +474,12 @@ inline CudaQueryPlan build_cuda_query(const CompiledExperiment& run, const CudaE
     const auto& plan = engine.plan->compiled.plan;
     auto [xrows, zrows] = cuda_query_frame_rows(experiment, engine, target);
     std::vector<CudaQueryAffine> rhs;
-    for(size_t j = 0; j < network.boundary.events.size(); j++)
-        rhs.push_back({xors(xrows, network.boundary.events[j]),
-                parent.selection[j] ^ network.traced.clifford.boundary[j].second});
+    for(size_t j = 0; j < network.boundary.events.size(); j++) {
+        auto value = outcomes ? outcomes->at(j) : CudaQueryAffine{{}, parent.selection[j]};
+        value.row ^= xors(xrows, network.boundary.events[j]);
+        value.constant ^= network.traced.clifford.boundary[network.boundary.keep.size() + j].second;
+        rhs.push_back(std::move(value));
+    }
     auto combine = [](const std::vector<CudaQueryAffine>& values, const Bits& mask) {
         CudaQueryAffine result;
         mask.each([&](size_t j) { result = cuda_query_xor(std::move(result), values.at(j)); });
@@ -410,7 +500,13 @@ inline CudaQueryPlan build_cuda_query(const CompiledExperiment& run, const CudaE
     }
     auto observation = CudaQueryAffine{xors(zrows, network.boundary.x) ^ xors(xrows, network.boundary.z), 0};
     out.constant_linear.insert(out.constant_linear.end(), {int32_t(out.feature(observation)), 4});
-    for(const auto& row : network.maps->event_polar) out.linear_shift.push_back(out.feature(combine(shift, row)));
+    auto event_polar = network.maps->event_polar;
+    if(pullback) {
+        event_polar.clear();
+        for(const auto& axis : pullback->change) event_polar.push_back(xors(network.maps->event_polar, axis));
+    }
+    for(const auto& row : event_polar) out.linear_shift.push_back(out.feature(combine(shift, row)));
+    auto dual = pullback ? transpose(pullback->change, pullback->dimension) : std::vector<Bits>{};
     std::map<std::pair<size_t, size_t>, CudaQueryAffine> structural;
     for(size_t j = 0; j < network.magic.size(); j++) {
         CudaQueryAffine xm{xrows.at(plan.physical + j), 0}, zm{zrows.at(plan.physical + j), 0};
@@ -418,7 +514,9 @@ inline CudaQueryPlan build_cuda_query(const CompiledExperiment& run, const CudaE
         out.magic.insert(out.magic.end(), {mod8(plan.magic[j]), mod8(network.reference_exponents[j]),
                 network.bra_offsets[j], network.ket_offsets[j], int32_t(out.feature(xm)), int32_t(out.feature(zm)),
                 int32_t(out.feature(bm)), int32_t(out.feature(km))});
-        const Bits* masks[2] = {&network.maps->bra_reduced[j], &network.maps->ket_reduced[j]};
+        Bits mapped[2] = {network.maps->bra_reduced[j], network.maps->ket_reduced[j]};
+        if(pullback) for(auto& row : mapped) row = xors(dual, row);
+        const Bits* masks[2] = {&mapped[0], &mapped[1]};
         CudaQueryAffine changes[2] = {cuda_query_xor(xm, bm), cuda_query_xor(xm, km)};
         for(size_t side = 0; side < 2; side++) {
             auto start = out.magic_masks.size();
@@ -453,21 +551,35 @@ inline CudaQueryPlan build_cuda_query(const CompiledExperiment& run, const CudaE
         Bits allowed_base;
         allowed_base.w = experiment.base;
         allowed_base.trim();
+        bool dynamic = false;
         for(const auto& row : independent) {
             for(size_t a = 0; a < experiment.action_sites.size(); a++) {
                 uint64_t combined = 0;
-                for(size_t w = 0; w < row.w.size(); w++) combined ^= row.w[w] & experiment.columns[a * out.frame_words + w];
-                if(__builtin_popcountll(combined) & 1)
-                    throw std::invalid_argument("CUDA large query has varying quadratic geometry on the noise span");
+                for(size_t w = 0; w < std::min(row.w.size(), 2 * experiment.words); w++)
+                    combined ^= row.w[w] & experiment.columns[a * 2 * experiment.words + w];
+                if(__builtin_popcountll(combined) & 1) {
+                    if(!outcomes) throw std::invalid_argument("CUDA large query has varying quadratic geometry on the noise span");
+                    dynamic = true;
+                }
             }
+            if(extra_changes)
+                for(const auto& column : *extra_changes)
+                    if(row.parity_and(column)) dynamic = true;
             out.guards.push_back(out.feature({row, row.parity_and(allowed_base)}));
         }
-        auto features = cuda_query_feature_values(out, experiment.base.data());
+        if(dynamic) {
+            out.mode = 4;
+            out.guards.clear();
+            return out;
+        }
+        auto base_frame = experiment.base;
+        base_frame.resize(out.frame_words);
+        auto features = cuda_query_feature_values(out, base_frame.data());
         std::vector<int> l;
         std::vector<Bits> upper;
         cuda_query_actual(out, features, l, upper);
-        CliffordContraction contraction(std::vector<Bits>(out.n), Quadratic{0, l, upper});
-        if(!contraction.keep.empty()) throw std::logic_error("CUDA scalar contraction retained outputs");
+        CliffordContraction contraction(pullback ? pullback->columns : std::vector<Bits>(out.n), Quadratic{0, l, upper});
+        if(!pullback && !contraction.keep.empty()) throw std::logic_error("CUDA scalar contraction retained outputs");
         out.step_offsets.push_back(0);
         for(const auto& step : contraction.steps) {
             out.steps.insert(out.steps.end(), {int32_t(step.h), int32_t(step.p), int32_t(step.odd)});
@@ -491,8 +603,14 @@ inline std::vector<CudaQueryPlan> build_cuda_queries(const CompiledExperiment& r
 }
 
 // CPU reference of exact_query in probability_queries.cu.
-inline Scalar cuda_query_cpu_value(const CudaQueryPlan& p, const uint64_t* frame) {
+inline Scalar cuda_query_cpu_value(const CudaQueryPlan& p, const uint64_t* frame, size_t disabled_caps = 0) {
     if(!p.mode) return {};
+    if(p.mode == 6) return cuda_query_cpu_value(*p.shared_base, frame, p.disabled_caps);
+    if(p.mode == 5) {
+        Scalar result;
+        for(size_t j = 0; j < p.components.size(); j++) result = result + cuda_query_cpu_value(p.components[j], frame, disabled_caps) * p.weights[j];
+        return result;
+    }
     auto f = cuda_query_feature_values(p, frame);
     for(auto guard : p.guards)
         if(f[guard]) throw std::invalid_argument("frame is outside the certified large-query quadratic geometry");
@@ -501,15 +619,21 @@ inline Scalar cuda_query_cpu_value(const CudaQueryPlan& p, const uint64_t* frame
     std::vector<int> l;
     std::vector<Bits> upper;
     int phase = cuda_query_actual(p, f, l, upper, p.mode != 2);
+    size_t active = p.n - disabled_caps;
+    int adjusted_power = p.power_sqrt2 + 2 * int(disabled_caps);
+    if(disabled_caps) {
+        l.resize(active); upper.resize(active);
+        for(auto& row : upper) row = row.low(active);
+    }
     Scalar value;
     if(p.mode == 3) {
         std::array<int64_t, 8> counts{};
         for(size_t u = 0; u < p.phase_table.size(); u++)
             counts[mod8(phase + 2 * qvalue(Bits(u), l, upper) + p.phase_table[u])]++;
         for(size_t k = 0; k < 8; k++) value = value + Scalar(counts[k]) * omega(int(k), p.power_sqrt2);
-    } else if(p.mode == 1) {
-        CliffordContraction contraction(std::vector<Bits>(p.n), Quadratic{0, l, upper});
-        auto ket = contraction.evaluate(0, {}, std::move(l), p.power_sqrt2, phase);
+    } else if(p.mode == 1 || p.mode == 4) {
+        CliffordContraction contraction(std::vector<Bits>(active), Quadratic{0, l, upper});
+        auto ket = contraction.evaluate(0, {}, std::move(l), adjusted_power, phase);
         if(!ket.zero) value = omega(ket.phase, ket.power);
     } else {
         int power = p.power_sqrt2;

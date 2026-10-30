@@ -8,6 +8,10 @@ struct CudaQueriesBinding {
 };
 
 inline PyObject* cuda_query_plan_output(const CudaQueryPlan& p) {
+    if(p.mode == 6)
+        return Py_BuildValue("{s:i,s:n,s:n,s:n,s:n}", "mode", 6, "n", Py_ssize_t(p.n),
+                "frame_words", Py_ssize_t(p.frame_words), "base_index", Py_ssize_t(p.base_index),
+                "disabled_caps", Py_ssize_t(p.disabled_caps));
     Object out(Py_BuildValue("{s:n,s:n,s:i,s:i,s:i,s:i,s:n,s:n}", "n", Py_ssize_t(p.n),
             "frame_words", Py_ssize_t(p.frame_words), "mode", p.mode, "constant", p.constant,
             "power_sqrt2", p.power_sqrt2, "output_power", p.output_power,
@@ -39,6 +43,15 @@ inline PyObject* cuda_query_plan_output(const CudaQueryPlan& p) {
     phase_set(out.p, "step_offsets", cuda_output_bytes(p.step_offsets));
     phase_set(out.p, "step_indices", cuda_output_bytes(p.step_indices));
     phase_set(out.p, "step_tags", cuda_output_bytes(p.step_tags));
+    if(p.mode == 5) {
+        Object components(PyTuple_New(p.components.size())), weights(PyTuple_New(p.weights.size()));
+        for(size_t j = 0; j < p.components.size(); j++) {
+            PyTuple_SET_ITEM(components.p, j, cuda_query_plan_output(p.components[j]));
+            PyTuple_SET_ITEM(weights.p, j, output_scalar(p.weights[j]));
+        }
+        phase_set(out.p, "components", Py_NewRef(components.p));
+        phase_set(out.p, "weights", Py_NewRef(weights.p));
+    }
     return Py_NewRef(out.p);
 }
 

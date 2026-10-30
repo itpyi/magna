@@ -237,6 +237,7 @@ class GpuMomentTests(unittest.TestCase):
         obj._norm_power = norm_power
         obj._statistics_module = None
         obj._unit_weights = None
+        obj._history = None
         obj._has_error = True
         obj._experiment = SimpleNamespace(metadata={'max_shots': 1_000_000}, validate=lambda: None)
         return obj

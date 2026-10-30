@@ -462,3 +462,73 @@ def cpu_run(sampler, shots, *, seed=0, offset=0, batch_size=65536):
         exact = cpu_evaluate(queries, frames)
         chunks.append(cpu_moments(exact.coefficients, exact.powers, sampler._norm_power, weights))
     return _summarize_moments(_merge_moments(chunks), sampler._has_error)
+
+
+def history_scientific_rows(coefficients, powers, norm_power=0, proposal_rank=None, likelihood=None):
+    """Arbitrary-precision oracle for history-normalized contributions."""
+    from decimal import Decimal, localcontext
+    c, p = np.asarray(coefficients), np.asarray(powers)
+    exponent_span = max([abs(int(norm_power)), *(abs(int(x)) for x in p.flat)], default=0)
+    rows = []
+    with localcontext() as context:
+        context.prec = max(100, int(exponent_span*.61)+100)
+        two, sqrt2 = Decimal(2), Decimal(2).sqrt()
+        def scalar(cs, power):
+            a, b, imaginary, opposite = map(int, cs)
+            if imaginary or b != -opposite:
+                raise ValueError('nonreal history mass')
+            if a*b < 0:
+                value = Decimal(a*a-2*b*b)/(Decimal(a)-Decimal(b)*sqrt2)
+            else:
+                value = Decimal(a)+Decimal(b)*sqrt2
+            return value*two**int(power)
+        def scientific(value):
+            if not value:
+                return (0., 0)
+            exponent = int(value.adjusted()*math.log2(10))+1
+            normalized = value/two**exponent
+            while normalized < Decimal('.5'):
+                normalized *= 2
+                exponent -= 1
+            while normalized >= 1:
+                normalized /= 2
+                exponent += 1
+            mantissa, shift = math.frexp(float(normalized))
+            return mantissa, exponent+shift
+        for shot in range(len(c)):
+            history = scalar(c[shot, 0], p[shot, 0])
+            acceptance = scalar(c[shot, 1], p[shot, 1])
+            target = scalar(c[shot, 2], int(p[shot, 2])-norm_power) if c.shape[1] == 3 else Decimal(0)
+            if not 0 <= target <= acceptance <= history:
+                raise ValueError('invalid history masses')
+            divisor = history if proposal_rank is None else two**(-int(proposal_rank[shot]))
+            if divisor == 0:
+                raise ValueError('zero conditional history mass')
+            weight = Decimal.from_float(float(likelihood[shot])) if likelihood is not None else Decimal(1)
+            rows.append((scientific(acceptance*weight/divisor),
+                         scientific((acceptance-target)*weight/divisor) if c.shape[1] == 3 else (0., 0)))
+    return rows
+
+
+def history_draw(experiment, handle, metadata, seed, shot):
+    """Exact addressed history with the original ControllerBinding.invoke calls."""
+    inputs, outputs = [], []
+    compiled = experiment.compiled
+    for site in metadata['sites']:
+        row = _native.cuda_history_replay(handle, seed, shot, tuple(inputs), tuple(outputs))
+        controls = (compiled._control_metadata if site['stage'] == 'protocol'
+                    else compiled._recovery_control_metadata)
+        instruction, binding, _, _ = controls.callbacks[site['index']]
+        result = binding.invoke(tuple(row), site['output_count'], source=instruction.source)
+        inputs.append(row)
+        outputs.append(bytes(result))
+    return inputs, outputs, _native._cuda_history_cpu_reference(handle, seed, shot, tuple(outputs))
+
+
+def history_affine_value(raw, packed):
+    """Independent integer-parity reference for schedule and cap affine rows."""
+    values = np.frombuffer(packed, dtype='<u8')
+    rows = np.frombuffer(raw['rows'], dtype='<u8').reshape(raw['count'], len(values))
+    constants = np.frombuffer(raw['constants'], dtype='u1')
+    return bytes(int(constant) ^ (sum((int(a)&int(b)).bit_count() for a, b in zip(row, values)) & 1)
+                 for row, constant in zip(rows, constants))

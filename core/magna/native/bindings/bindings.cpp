@@ -4,6 +4,11 @@ PyMethodDef methods[] = {{"literal_program_layout", literal_program_layout, METH
                                  "Assign unique temporary compiler IDs and explicit inline outcome records."},
         {"make_cuda_experiment", make_cuda_experiment, METH_O, "Prepare the fixed noise plan for the CUDA sampler."},
         {"make_cuda_queries", make_cuda_queries, METH_O, "Prepare exact GPU probability queries."},
+        {"make_cuda_history", make_cuda_history, METH_O, "Prepare GPU decoder history schedules."},
+        {"cuda_history_replay", cuda_history_replay, METH_VARARGS, "Complete a decoder site or terminal numerical row exactly."},
+        {"_cuda_history_cpu_reference", cuda_history_cpu_reference, METH_VARARGS, "Native reference of addressed GPU history sampling."},
+        {"_cuda_history_support_reference", cuda_history_support_reference, METH_VARARGS, "Evaluate a packed affine support plan exactly."},
+        {"_cuda_history_prefix_cpu_evaluate", cuda_history_prefix_cpu_evaluate, METH_VARARGS, "Evaluate a shared history prefix exactly."},
         {"cuda_noise_metadata", cuda_noise_metadata, METH_O, "Export integer noise laws for fused CUDA sampling."},
         {"cuda_noise_validate", cuda_noise_validate, METH_O, "Validate a fused CUDA noise plan."},
         // CPU references for the CUDA sampler's tests.

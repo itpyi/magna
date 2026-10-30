@@ -3,6 +3,8 @@
 #define MODE @MODE@
 #define STRIDE @STRIDE@
 #define FRAME_BITS @FRAME_BITS@
+#define PAULI_WORDS @PAULI_WORDS@
+#define REAL_OUTPUT @REAL_OUTPUT@
 #define FEATURES @FEATURES@
 #define SUPPORT @SUPPORT@
 #define GUARDS @GUARDS@
@@ -30,6 +32,7 @@ extern "C" __global__ void query_features(
     output[i] = constants[feature] ^ (__popcll(v) & 1);
 }
 
+#if MODE != 4
 extern "C" __global__ void exact_query(
     const unsigned long long* frames, const unsigned char* features,
     const unsigned int* support, const unsigned int* guards,
@@ -50,8 +53,8 @@ extern "C" __global__ void exact_query(
     status[output] = 0;
 #if (FRAME_BITS % 64) != 0 || FRAME_BITS == 0
     const unsigned long long valid = FRAME_BITS == 0 ? 0 : ((1ULL << (FRAME_BITS % 64)) - 1);
-    if ((frames[shot * STRIDE + STRIDE / 2 - 1] |
-         frames[shot * STRIDE + STRIDE - 1]) & ~valid) {
+    if ((frames[shot * STRIDE + PAULI_WORDS / 2 - 1] |
+         frames[shot * STRIDE + PAULI_WORDS - 1]) & ~valid) {
         status[output] = 2;
         return;
     }
@@ -199,8 +202,136 @@ extern "C" __global__ void exact_query(
         for (int k = 0; k < 4; ++k) result[k] /= 2;
         ++exponent;
     }
-    if (result[2] || result[1] != -result[3]) status[output] = 3;
+    if (REAL_OUTPUT && (result[2] || result[1] != -result[3])) status[output] = 3;
     for (int k = 0; k < 4; ++k) coefficients[4 * output + k] = result[k];
     powers[output] = exponent;
 #endif
 }
+#else
+// Blocks reuse their matrix storage across draws with changing quadratic forms.
+extern "C" __global__ void exact_query_large(
+    const unsigned long long* frames, const unsigned char* features,
+    const unsigned int* support,
+    const unsigned char* initial_linear, const unsigned long long* initial_upper,
+    const unsigned int* linear_shift, const int* constant_linear, const int* constant_pairs,
+    const int* magic, const unsigned long long* magic_masks,
+    long long* coefficients, int* powers, int* status,
+    unsigned long long shots, int queries, int query, int active_n, unsigned long long* scratch) {
+    typedef unsigned long long u64;
+    __shared__ int linear[N ? N : 1], phase, power, h, p, lh, lp, zero;
+    __shared__ u64 active[WORDS ? WORDS : 1];
+    unsigned tid=threadIdx.x;
+    u64* adj=scratch+(u64)blockIdx.x*N*WORDS;
+    for(u64 shot=blockIdx.x;shot<shots;shot+=gridDim.x) {
+        u64 output=shot*queries+query;
+        if(!tid) {
+            zero=0;phase=CONSTANT;power=POWER+2*(N-active_n);
+            for(int k=0;k<4;++k)coefficients[4*output+k]=0;
+            powers[output]=0;status[output]=0;
+#if (FRAME_BITS % 64) != 0 || FRAME_BITS == 0
+            const u64 valid=FRAME_BITS==0?0:((1ULL<<(FRAME_BITS%64))-1);
+            if((frames[shot*STRIDE+PAULI_WORDS/2-1]|
+                frames[shot*STRIDE+PAULI_WORDS-1])&~valid) {zero=1;status[output]=2;}
+#endif
+            for(int j=0;j<SUPPORT;++j)if(F(support[j]))zero=1;
+            for(int j=0;j<CONSTANT_LINEAR;++j)
+                phase+=constant_linear[2*j+1]*F(constant_linear[2*j]);
+            for(int j=0;j<CONSTANT_PAIRS;++j)
+                phase+=4*F(constant_pairs[2*j])*F(constant_pairs[2*j+1]);
+            for(int j=0;j<MAGIC;++j) {
+                const int* m=magic+8*j;
+                int actual=((F(m[4])?-m[0]:m[0])+4*F(m[5]))&7;
+                for(int side=0;side<2;++side) {
+                    int before=m[2+side],after=before^F(m[6+side]);
+                    phase+=(side?1:-1)*(actual*after-m[1]*before);
+                }
+            }
+            phase&=7;
+        }
+        __syncthreads();
+        if(zero) {__syncthreads();continue;}
+        for(int w=tid;w<WORDS;w+=blockDim.x) {
+            int remaining=active_n-64*w;
+            active[w]=remaining<=0?0ULL:remaining>=64?~0ULL:((1ULL<<remaining)-1);
+        }
+        for(int j=tid;j<active_n;j+=blockDim.x) {
+            int value=(initial_linear[j]+2*F(linear_shift[j]))&3;
+            for(int w=0;w<WORDS;++w)adj[(u64)j*WORDS+w]=initial_upper[(u64)j*WORDS+w];
+            for(int k=0;k<MAGIC;++k) {
+                const int* m=magic+8*k;
+                int actual=((F(m[4])?-m[0]:m[0])+4*F(m[5]))&7;
+                for(int side=0;side<2;++side) {
+                    const u64* mask=magic_masks+(2*k+side)*WORDS;
+                    if(!((mask[j/64]>>(j%64))&1))continue;
+                    int before=m[2+side],after=before^F(m[6+side]),sign=side?1:-1;
+                    int c=((sign*(actual*(after?-1:1)-m[1]*(before?-1:1)))&7)/2;
+                    value=(value+c)&3;
+                    if(c&1)for(int w=0;w<WORDS;++w)
+                        adj[(u64)j*WORDS+w]^=mask[w]&~(w==j/64?(1ULL<<(j%64)):0ULL);
+                }
+            }
+            linear[j]=value;
+        }
+        __syncthreads();
+        while(true) {
+            if(!tid) {
+                h=-1;
+                for(int w=0;w<WORDS;++w)if(active[w]) {h=64*w+__ffsll((long long)active[w])-1;break;}
+                if(h>=0) {
+                    active[h/64]&=~(1ULL<<(h%64));lh=linear[h];p=-1;
+                    if(lh&1) {++power;phase=(phase+(lh==1?1:-1))&7;}
+                    else {
+                        power+=2;
+                        for(int w=0;w<WORDS;++w) {
+                            u64 v=adj[(u64)h*WORDS+w]&active[w];
+                            if(v) {p=64*w+__ffsll((long long)v)-1;break;}
+                        }
+                        if(p<0) {if(lh/2)zero=1;}
+                        else {active[p/64]&=~(1ULL<<(p%64));lp=linear[p];phase=(phase+2*(lh/2)*lp)&7;}
+                    }
+                }
+            }
+            __syncthreads();
+            if(h<0 || zero)break;
+            for(int j=tid;j<active_n;j+=blockDim.x) {
+                if(!((active[j/64]>>(j%64))&1))continue;
+                int sj=(adj[(u64)h*WORDS+j/64]>>(j%64))&1;
+                if(lh&1) {
+                    if(!sj)continue;
+                    linear[j]=(linear[j]+(lh==1?-1:1))&3;
+                    for(int w=0;w<WORDS;++w)
+                        adj[(u64)j*WORDS+w]^=(adj[(u64)h*WORDS+w]&active[w])&
+                            ~(w==j/64?(1ULL<<(j%64)):0ULL);
+                } else if(p>=0) {
+                    int nj=(adj[(u64)p*WORDS+j/64]>>(j%64))&1;
+                    if(!(sj||nj))continue;
+                    linear[j]=(linear[j]+lp*sj+2*sj*nj+2*(lh/2)*(nj^((lp&1)*sj)))&3;
+                    for(int w=0;w<WORDS;++w) {
+                        u64 a=adj[(u64)h*WORDS+w]&active[w],b=adj[(u64)p*WORDS+w]&active[w];
+                        adj[(u64)j*WORDS+w]^=(((nj^(sj&&(lp&1)))?a:0ULL)^(sj?b:0ULL))&
+                            ~(w==j/64?(1ULL<<(j%64)):0ULL);
+                    }
+                }
+            }
+            __syncthreads();
+        }
+        if(!tid && !zero) {
+            long long value[4]={0,0,0,0};
+            value[phase&3]=phase<4?1:-1;
+            if(power&1) {
+                long long rotated[4]={0,0,0,0};
+                for(int k=0;k<4;++k) {
+                    int a=k+1,b=k+3;
+                    rotated[a&3]+=(a<4?1:-1)*value[k];
+                    rotated[b&3]-=(b<4?1:-1)*value[k];
+                }
+                for(int k=0;k<4;++k)value[k]=rotated[k];
+            }
+            powers[output]=(power-(power&1))/2+OUTPUT_POWER;
+            if(REAL_OUTPUT && (value[2] || value[1]!=-value[3]))status[output]=3;
+            for(int k=0;k<4;++k)coefficients[4*output+k]=value[k];
+        }
+        __syncthreads();
+    }
+}
+#endif

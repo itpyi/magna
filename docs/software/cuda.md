@@ -2,10 +2,10 @@
 
 The experimental CUDA sampler runs physical and importance sampling of supported tasks on an NVIDIA GPU.
 It reports the same acceptance, error and conditional error as `run`, with every per-draw
-probability still exact, and draws hundreds of times faster than the CPU sampler.
+probability still exact. Speed depends on the task and the time spent in its decoder.
 Use it when a task needs more draws than the CPU sampler completes in the time you have.
 
-On an RTX 4090 D, 262,144 draws of four example tasks took the following times,
+On an RTX 4090 D, 262,144 draws of four example tasks without decoder calls took the following times,
 compared with `run` on one core of a Ryzen 9 9950X (median of three runs, batch size 65,536,
 first-call compilation excluded):
 
@@ -58,19 +58,23 @@ The first call also compiles the GPU code, so reuse one sampler for repeated run
 After changing the circuit, task, sampling or options, compile again and create a new sampler.
 Use a sampler from one thread at a time.
 
+Tasks with registered Python decoders use the same `controllers` argument to `compile_circuit`.
+The decoders run on the CPU. Select `affine_support` or `exact_marginal` through
+the compilation option `history_sampler`, as described in [History samplers](sampling.md#history-samplers).
+On the machine above, `exact_marginal` was slower on the GPU for `tqd3`–`tqd5`;
+use `run` for that configuration when sampling time is the priority.
+
 ## Supported tasks
 
 The CUDA sampler supports a task when:
 
-- it samples no measurement history: `compilation.sampled_history` in the
-  [inspect report](sampling.md#history-samplers) is false. Decoder calls,
-  [conditional noise](noise.md#conditional-noise) and `sample_records` all sample a history;
+- its noise is unconditional and `sample_records` is empty;
 - it has no observables;
 - it uses physical sampling, or importance sampling in which every scaled noise location
   has the same total error probability and there are between 2 and 512 of them.
   A noise location is one target qubit or qubit pair of a noise instruction, one correlated-error chain,
   or one noisy measurement;
-- if the ideal state uses postselection, its postselection probability is a power of two.
+- for tasks without decoder calls, ideal-state postselection has a power-of-two probability.
 
 Affine feedback, correlated errors, Pauli channels and measurement report errors are all supported.
 For an unsupported task, `CudaSampler(compiled)` raises `ValueError` with the reason.
@@ -81,7 +85,7 @@ The example tasks run as follows:
 |---|---|---|
 | `bh2`–`bh100`, `-S` and `-T` | Yes | Yes |
 | `color3`, `color5`, `rp2-d3`, `rp2-d3-S`, `rp2-d5`, `rp2-d5-S`, `wg-S`, `wg-T` | Yes | No: more than 512 noise locations |
-| `dk`, `logical-distillation`, `tqd3`, `tqd4`, `tqd5` | No: decoder calls | No |
+| `dk`, `logical-distillation`, `tqd3`, `tqd4`, `tqd5` | Yes | Subject to the noise-location limits above |
 
 ## Results
 
