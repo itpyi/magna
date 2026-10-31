@@ -2,6 +2,7 @@
 #pragma once
 #include "file_plans.hpp"
 #include "affine_proposal.hpp"
+#include "observation.hpp"
 #include "sampling.hpp"
 #include "marginal.hpp"
 #include <atomic>
@@ -95,6 +96,8 @@ struct CompiledExperiment {
     bool proposal = false;
     // Terminal cap rows in the sampling parent's certified label basis.
     std::map<std::string, std::vector<Bits>> completed_caps;
+    // Fixed causal observation schedule; draws supply only reported values.
+    ObservationTemplate observation;
     Scalar target_normalization{1};
     bool target_normalization_ready = false;
     std::map<std::string, std::vector<std::pair<std::string, std::shared_ptr<const CompiledNetwork>>>> resources;
@@ -146,6 +149,7 @@ struct CompiledExperiment {
                     transport += sizeof(image.position) + image.x.x.payload_bytes() + image.x.z.payload_bytes() +
                             image.z.x.payload_bytes() + image.z.z.payload_bytes() + 8;
             }
+            transport += engine->noise_images.size() * sizeof(engine->noise_images[0]);
             out.protocol_transport += transport;
         }
         return out;
@@ -215,9 +219,22 @@ struct CompiledExperiment {
             };
             prepare_caps(*engine, "acceptance");
             if(target) prepare_caps(*target, "fidelity");
+            auto tick = std::chrono::steady_clock::now();
+            observation = prepare_observation(*history->parent, engine->reference_records.at("sampling"),
+                    source.controls, source.recovery_controls ? &*source.recovery_controls : nullptr,
+                    source.protocol.num_records, task.boundaries.sample_records, completed_caps);
+            context.compile_seconds += std::chrono::duration<double>(std::chrono::steady_clock::now() - tick).count();
         }
         for(const auto& [stage, engine] : plans.prepared) {
-            if(!engine->plan->compiled.plan.continuation) prepare_feedback_frames(*engine);
+            if(!engine->plan->compiled.plan.continuation) {
+                prepare_feedback_frames(*engine);
+                if(noise.has_actions) {
+                    auto tick = std::chrono::steady_clock::now();
+                    engine->prepare_noise_images(noise.actions);
+                    context.compile_seconds +=
+                            std::chrono::duration<double>(std::chrono::steady_clock::now() - tick).count();
+                }
+            }
             engine->plan->finish_preparation();
         }
         complete = true;
@@ -265,8 +282,8 @@ private:
         auto target = plans.get("target");
         Frame local;
         if(!supplied_frame) {
-            auto actual = assignment(*target, noise, values, recovery_values, "target");
-            local = target->plan->assignment_transport().fault_frame(actual.faults, false);
+            local = actual_frame(
+                    *target, target->plan->assignment_transport(), noise, values, recovery_values, "target");
             supplied_frame = &local;
         }
         result.target_normalization = target_normalization;
@@ -411,7 +428,10 @@ public:
         Scalar total;
         if(!session.zero && !session.committed.boundary.zero) {
             auto caps = parent.selection;
-            for(const auto& row : completed_caps.at(purpose)) caps.push_back(session.committed.value(row));
+            for(const auto& recipe : observation.caps.at(purpose)) {
+                if(!recipe) throw std::invalid_argument("terminal reference requires the complete causal history");
+                caps.push_back(session.committed.value(*recipe));
+            }
             auto result = parent.reference->evaluate(frame, engine.plan->compiled.plan.magic, caps, false, ws,
                     engine.plan->limits, &engine.plan->database, true,
                     purpose != "fidelity" || engine.plan->compiled.plan.continuation ? &session.common : nullptr);
@@ -430,6 +450,7 @@ public:
         };
         if(key(limits) != key(updated)) {
             history.reset();
+            observation = {};
             proposal = false;
             plans.clear();
             resources.clear();
@@ -439,7 +460,12 @@ public:
     }
     ActualNoise draw(const ExecutionHooks& hooks) const {
         if(noise.categories.empty()) return {};
-        return noise_actions(noise, draw_noise(noise, hooks.seed(), true, true));
+        auto selected = draw_noise(noise, hooks.seed(), true, true);
+        ActualNoise out;
+        out.drawn = std::move(selected.selected);
+        out.weight = std::move(selected.weight);
+        out.scientific_weight = selected.scientific_weight;
+        return out;
     }
     BoundaryResult query(const FileBoundary& engine, const Assignment& assignment, const NamedRows& keep,
             const NamedRows& events, const std::vector<int>& outcomes, const Bits& x = {}, const Bits& z = {},
@@ -460,9 +486,16 @@ public:
         Workspace ws;
         return boundary_sum(result.terms, {}, {}, ws);
     }
+    // Feedback and named noise only; drawn indices are transported by actual_frame.
     Assignment assignment(const FileBoundary& engine, const ActualNoise& noise, const DecisionValues& values,
             const DecisionValues& recovery_values, const std::string& stage) const {
         return engine.pack(source.faults(values, recovery_values, noise, source.stage(stage)), noise.flips);
+    }
+    Frame actual_frame(const FileBoundary& engine, const Plan& transport, const ActualNoise& noise,
+            const DecisionValues& values, const DecisionValues& recovery_values, const std::string& stage) const {
+        auto frame = transport.fault_frame(assignment(engine, noise, values, recovery_values, stage).faults, false);
+        engine.transport_noise(this->noise.actions, noise.drawn, frame);
+        return frame;
     }
     HistoryMasses evaluate(const ActualNoise& noise, const DecisionValues& values,
             const DecisionValues& recovery_values, const NamedRows& known, const std::vector<int>& outcomes,
@@ -471,11 +504,9 @@ public:
             const Frame* supplied_frame = nullptr, const Frame* target_frame = nullptr,
             const Scalar* sampled_mass = nullptr) {
         auto engine = plans.get(source.stage("recovery"));
-        Assignment packed;
         Frame local;
         if(!supplied_frame) {
-            packed = assignment(*engine, noise, values, recovery_values, "recovery");
-            local = engine->plan->compiled.plan.fault_frame(packed.faults, false);
+            local = actual_frame(*engine, engine->plan->compiled.plan, noise, values, recovery_values, "recovery");
             supplied_frame = &local;
         }
         const auto& frame = *supplied_frame;
@@ -523,7 +554,7 @@ public:
             auto rhs = outcomes;
             rhs.insert(rhs.end(), task.outcomes.begin(), task.outcomes.end());
             for(const auto& [x, z] : task.boundaries.observables)
-                result.moments.push_back(total(*engine, packed, events, rhs, x, z, &frame));
+                result.moments.push_back(total(*engine, {}, events, rhs, x, z, &frame));
         }
         if(source.target) {
             // All entry points consume the same completed protocol assignment:
@@ -550,8 +581,9 @@ private:
         bool supplied;
         HistoryResult result;
         NoiseActions candidates;
-        CausalKnowledge known;
-        ReferenceRows known_coordinates;
+        // Per inserted observation row: its reported bit and its reduced value
+        // in the template's GF(2) basis.
+        std::vector<int> observed, reduced;
         DecisionValues values, recovery_values;
         ReferenceAssignment protocol_assignment;
         std::shared_ptr<FileBoundary> engine;
@@ -577,6 +609,7 @@ private:
             protocol_assignment.apply(engine->feedback_constant);
             protocol_assignment.append(engine->plan->compiled.plan,
                     engine->pack(run.source.original_faults(result.noise), result.noise.flips).faults);
+            engine->transport_noise(run.noise.actions, result.noise.drawn, protocol_assignment.frame);
             if(run.proposal) result.proposal_denominator = Integer(1);
             prepare_sector_draw();
             prepare_session();
@@ -605,28 +638,26 @@ private:
         void prepare_session() {
             if(run.history) {
                 auto tick = std::chrono::steady_clock::now();
-                session.emplace(*run.history, *engine->plan, sector);
+                session.emplace(*run.history, *engine->plan, sector, run.observation.layout.get());
+                observed.reserve(run.observation.rows.size());
+                reduced.reserve(run.observation.rows.size());
                 run.context.support_seconds +=
                         std::chrono::duration<double>(std::chrono::steady_clock::now() - tick).count();
             }
         }
-        std::vector<int> inputs(const std::vector<std::pair<Bits, int>>& expressions, const std::string&) {
-            auto request = known.request(expressions);
+        // Reported values of one prepared request; offsets are the expressions'
+        // decision-dependent constants.
+        std::vector<int> inputs(const ObservationRequest& request, const std::vector<int>& offsets) {
             Bits word;
-            ReferenceRows rows;
-            if(!request.pending.empty()) {
+            const size_t pending = request.pending;
+            if(pending) {
                 const auto& frame = protocol_assignment.frame;
-                auto reference_network = run.prepare_reference_network(*engine, "sampling");
-                const auto& record_map = engine->reference_records.at("sampling");
-                rows = record_map(request.pending);
                 session->committed.synchronize(frame);
-                auto affine = record_map.affine_values(
-                        request.pending, rows, reference_network->closed.size(), frame, sector);
-                if(affine) word = *affine;
+                if(request.affine) word = affine_word(request, sector, frame);
                 else if(run.proposal) {
                     run.context.check(run.limits);
                     auto tick = std::chrono::steady_clock::now();
-                    auto support = session->support_committed(frame, rows);
+                    auto support = session->support_committed(frame, request.rows);
                     run.context.support_updates++;
                     run.context.support_seconds +=
                             std::chrono::duration<double>(std::chrono::steady_clock::now() - tick).count();
@@ -640,41 +671,43 @@ private:
                         support.upper.resize(dimension);
                         support.power = -2 * int64_t(dimension);
                         StabilizerTerms uniform{{Scalar(1), std::move(support)}};
-                        word = hooks.branch ? hooks.branch(uniform, request.pending.size())
-                                            : sample_boundary(uniform, request.pending.size(), hooks.seed());
+                        word = hooks.branch ? hooks.branch(uniform, pending)
+                                            : sample_boundary(uniform, pending, hooks.seed());
                     }
                 } else {
                     run.context.check(run.limits);
                     run.context.queries++;
                     auto tick = std::chrono::steady_clock::now();
-                    auto marginal = session->query_committed(frame, rows);
+                    auto marginal = session->query_committed(frame, request.rows);
                     run.context.reference_network_evaluations["sampling"]++;
                     run.context.kernel_seconds +=
                             std::chrono::duration<double>(std::chrono::steady_clock::now() - tick).count();
                     if(hooks.branch) {
-                        word = hooks.branch(marginal.terms, request.pending.size());
-                        sampled_mass = ProbabilityMarginal{marginal.terms, request.pending.size()}.value(word);
-                    } else word = sample_boundary(marginal.terms, request.pending.size(), hooks.seed(), &sampled_mass);
+                        word = hooks.branch(marginal.terms, pending);
+                        sampled_mass = ProbabilityMarginal{marginal.terms, pending}.value(word);
+                    } else word = sample_boundary(marginal.terms, pending, hooks.seed(), &sampled_mass);
                 }
             }
-            size_t before = known.rows.size();
-            auto observed = known.observe(request, word);
-            // observe retains a subsequence of pending (dependent observations
-            // still receive their consistency check). Keep only this draw's rows.
-            size_t next = before;
-            for(size_t j = 0; j < request.pending.size() && next < known.rows.size(); j++)
-                if(request.pending[j] == known.rows[next]) {
-                    Bits physical;
-                    if(rows.labels[j].size() <= run.history->parent->closed.size()) {
-                        const auto& indices = engine->reference_records.at("sampling").physical;
-                        request.pending[j].each([&](size_t bit) { physical.set(indices[bit]); });
-                    }
-                    session->committed.append(rows.labels[j], known.values[next],
-                            rows.labels[j].size() <= run.history->parent->closed.size() ? &physical : nullptr);
-                    known_coordinates.labels.push_back(std::move(rows.labels[j]));
-                    next++;
-                }
-            return observed;
+            if(word.size() > pending) throw std::invalid_argument("sampled word outside requested labels");
+            // Dependent observations still receive their consistency check.
+            for(size_t j = 0; j < pending; j++) {
+                int bit = word.bit(j), value = bit;
+                for(auto row = request.chains.begin(j); row != request.chains.end(j); ++row) value ^= reduced[*row];
+                if(request.inserted[j] != ReferenceHistoryLayout::absent) {
+                    reduced.push_back(value);
+                    observed.push_back(bit);
+                    session->committed.append(bit);
+                } else if(value) throw std::runtime_error("sampled parities violate an existing linear relation");
+            }
+            std::vector<int> result;
+            result.reserve(offsets.size());
+            for(size_t e = 0; e < offsets.size(); e++) {
+                int bit = offsets[e];
+                for(auto row = request.known.begin(e); row != request.known.end(e); ++row) bit ^= reduced[*row];
+                if(request.outputs[e]) bit ^= word.bit(*request.outputs[e]);
+                result.push_back(bit);
+            }
+            return result;
         }
         std::vector<int> invoke(const std::string& stage, size_t index, const std::vector<int>& bits, size_t count) {
             auto tick = std::chrono::steady_clock::now();
@@ -694,42 +727,38 @@ private:
                     for(const auto& [pauli, wire] : found->second) added.push_back({found->first, wire, pauli});
                 }
             } else {
+                std::vector<int64_t> drawn;
                 auto site = run.noise.conditional_sites.find(call.instruction);
                 if(site != run.noise.conditional_sites.end())
                     for(auto category : site->second) {
                         std::mt19937_64 rng(hooks.seed());
                         auto choice = run.noise.categories[category]->draw(rng);
-                        if(choice < 0) continue;
-                        const auto& action = run.noise.actions[run.noise.offsets[category] + size_t(choice)];
-                        auto& gates = result.noise.actions[action.anchor];
-                        gates.insert(gates.end(), action.gates.begin(), action.gates.end());
-                        for(const auto& [pauli, wire] : action.gates) added.push_back({action.anchor, wire, pauli});
+                        if(choice >= 0) drawn.push_back(int64_t(run.noise.offsets[category] + size_t(choice)));
                     }
+                engine->transport_noise(run.noise.actions, drawn, protocol_assignment.frame);
+                result.noise.drawn.insert(result.noise.drawn.end(), drawn.begin(), drawn.end());
             }
             if(!added.empty()) protocol_assignment.append(engine->plan->compiled.plan, engine->pack(added, {}).faults);
         }
-        void controllers(
-                const FileControlMetadata& metadata, DecisionValues& state, const std::string& stage, size_t offset) {
-            auto expression = [&](const ControllerInput& input) {
+        void controllers(const FileControlMetadata& metadata, const std::vector<ObservationRequest>& requests,
+                DecisionValues& state, const std::string& stage) {
+            auto offset = [&](const ControllerInput& input) {
                 int bit = input.constant;
                 for(auto index : input.decisions) bit ^= state.at(metadata.decision_order.at(index));
-                return std::make_pair(input.records << offset, bit);
+                return bit;
             };
-            size_t callback = 0, conditional = 0;
-            while(callback < metadata.callbacks.size() || conditional < metadata.conditional_noise.size()) {
-                if(conditional < metadata.conditional_noise.size() &&
-                        (callback == metadata.callbacks.size() ||
-                                metadata.conditional_noise[conditional].instruction <
-                                        metadata.callbacks[callback].instruction)) {
-                    const auto& call = metadata.conditional_noise[conditional++];
-                    if(!inputs({expression(call.guard)}, stage).at(0)) continue;
+            for(const auto& request : requests) {
+                if(request.guard) {
+                    const auto& call = metadata.conditional_noise[request.index];
+                    if(!inputs(request, {offset(call.guard)}).at(0)) continue;
                     apply_conditional_noise(call);
                 } else {
-                    size_t j = callback++;
+                    size_t j = request.index;
                     const auto& call = metadata.callbacks[j];
-                    std::vector<std::pair<Bits, int>> expressions;
-                    for(const auto& input : call.inputs) expressions.push_back(expression(input));
-                    auto bits = inputs(expressions, stage), out = invoke(stage, j, bits, call.outputs.size());
+                    std::vector<int> offsets;
+                    offsets.reserve(call.inputs.size());
+                    for(const auto& input : call.inputs) offsets.push_back(offset(input));
+                    auto bits = inputs(request, offsets), out = invoke(stage, j, bits, call.outputs.size());
                     if(stage == "protocol") result.decoder_calls++;
                     else result.recovery_decoder_calls++;
                     for(size_t k = 0; k < out.size(); k++) {
@@ -745,18 +774,15 @@ private:
             }
         }
         HistoryResult finish() {
-            controllers(run.source.controls, values, "protocol", 0);
-            if(!run.task.boundaries.sample_records.empty()) {
-                std::vector<std::pair<Bits, int>> expressions;
-                for(auto r : run.task.boundaries.sample_records) expressions.push_back({Bits::unit(r), 0});
-                result.samples = inputs(expressions, "protocol");
-            }
+            const auto& schedule = run.observation;
+            controllers(run.source.controls, schedule.protocol, values, "protocol");
+            if(schedule.samples)
+                result.samples = inputs(*schedule.samples, std::vector<int>(run.task.boundaries.sample_records.size()));
             if(run.source.recovery)
-                controllers(
-                        *run.source.recovery_controls, recovery_values, "recovery", run.source.protocol.num_records);
-            result.masses = run.evaluate(result.noise, values, recovery_values, {}, known.values, sector,
-                    session ? &*session : nullptr, &known.rows, &known_coordinates, &protocol_assignment.frame, nullptr,
-                    run.proposal ? nullptr : &sampled_mass);
+                controllers(*run.source.recovery_controls, schedule.recovery, recovery_values, "recovery");
+            result.masses = run.evaluate(result.noise, values, recovery_values, {}, observed, sector,
+                    session ? &*session : nullptr, &schedule.rows, &schedule.coordinates, &protocol_assignment.frame,
+                    nullptr, run.proposal ? nullptr : &sampled_mass);
             if(session) {
                 run.context.support_geometry_updates += session->geometry_updates;
                 run.context.support_geometry_reuses += session->geometry_reuses;
@@ -765,7 +791,7 @@ private:
                 run.context.reference_network_resource_constructions += session->resource_constructions;
                 run.context.reference_network_coordinate_constructions += session->coordinate_constructions;
             }
-            result.sampled_parities = known.rows.size();
+            result.sampled_parities = observed.size();
             return std::move(result);
         }
     };

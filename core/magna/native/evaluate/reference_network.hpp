@@ -83,7 +83,10 @@ struct ReferenceNetwork {
     std::shared_ptr<const CompiledNetwork> reference;
     ReferenceCoordinates labels;
     std::vector<int> selection;
-    std::vector<Bits> closed, closed_images;
+    std::vector<Bits> closed;
+    // Closed rows containing each physical frame location. Each location enters
+    // few closed rows, so a frame change costs its incidence, not the row width.
+    IndexLists closed_images;
     size_t capped_history = 0;
     ReferenceNetwork(BoundaryTracePlan& plan, const std::vector<Bits>& kept, const std::vector<Bits>& events,
             const std::vector<int>& outcomes, const std::vector<Bits>& commuting = {}, size_t terminal_history = 0)
@@ -99,7 +102,7 @@ struct ReferenceNetwork {
                 if(j < terminal_history) capped_history++;
             }
         labels = ReferenceCoordinates(basis, plan.compiled.plan.physical);
-        closed_images = transpose(closed, plan.compiled.plan.physical);
+        closed_images = transpose_lists(closed, plan.compiled.plan.physical);
         auto caps = events;
         caps.insert(caps.end(), closed.begin(), closed.end());
         // The compiler chooses compatible affine reference outcomes for these
@@ -119,7 +122,7 @@ struct ReferenceNetwork {
     }
     Bits closed_values(const Frame& frame, const Bits& virtual_sector) const {
         auto out = virtual_sector.low(closed.size());
-        xor_rows_prefix(out, closed_images, frame.x, closed_images.size());
+        xor_lists(out, closed_images, frame.x, closed.size());
         return out;
     }
     ReferenceBoundary project(const std::vector<Bits>& keep, const std::vector<Bits>& events,
@@ -208,26 +211,91 @@ struct ReferenceNetwork {
         return result;
     }
 };
-// One current observation boundary, expressed in the parent's open coordinates.
+// A row resolved through the observation echelon: its value is the parity of the
+// actual closed values on `closed`, XOR the current outcomes of `slots`.
+struct HistoryRecipe {
+    std::vector<size_t> closed, slots;
+};
+// The fixed echelon of the observed rows of a sampling parent, in the parent's
+// open coordinates. Coordinates, reduction slots and frame incidence follow from
+// the declared control syntax alone; no outcome, history or probability is stored.
 // Echelon rows retain their closed-coordinate pullback, so subsequent assignment
 // changes update RHSs without replaying observations or losing traced directions.
-// Incidence stores indices, never pointers into growable row vectors.
+// Incidence stores row indices in append order, never pointers into growable rows.
+struct ReferenceHistoryLayout {
+    static constexpr size_t absent = std::numeric_limits<size_t>::max();
+    size_t closed = 0;
+    IndexLists closed_bits, slots;
+    std::vector<size_t> open_slots, pivots;
+    std::vector<Bits> events;
+    std::vector<std::vector<size_t>> closed_incidence, physical_incidence;
+    explicit ReferenceHistoryLayout(const ReferenceNetwork& parent)
+        : closed(parent.closed.size()), closed_incidence(parent.closed.size()),
+          physical_incidence(parent.closed_images.size()) {}
+    void append(const Bits& coordinates, const Bits* physical = nullptr) {
+        auto row = coordinates >> closed;
+        // Only wholly closed certified rows have this physical-frame pullback.
+        const bool direct = row.empty() && physical;
+        auto pullback = direct ? Bits{} : coordinates.low(closed);
+        std::vector<size_t> chain;
+        while(!row.empty()) {
+            auto pivot = row.size() - 1;
+            if(pivot >= pivots.size() || pivots[pivot] == absent) break;
+            auto slot = pivots[pivot];
+            row ^= events[slot];
+            pullback ^= closed_parts[slot];
+            chain.push_back(slot);
+        }
+        size_t index = open_slots.size();
+        closed_bits.push(coordinates.low(closed).indices());
+        slots.push(chain);
+        if(row.empty()) open_slots.push_back(absent);
+        else {
+            auto pivot = row.size() - 1;
+            if(pivot >= pivots.size()) pivots.resize(pivot + 1, absent);
+            pivots[pivot] = events.size();
+            open_slots.push_back(events.size());
+            events.push_back(std::move(row));
+            closed_parts.push_back(pullback);
+        }
+        if(direct) physical->each([&](size_t bit) { physical_incidence.at(bit).push_back(index); });
+        else pullback.each([&](size_t bit) { closed_incidence[bit].push_back(index); });
+    }
+    // Resolve a terminal row through the complete echelon. An empty result means
+    // the observed history does not determine it.
+    std::optional<HistoryRecipe> resolve(const Bits& coordinates) const {
+        HistoryRecipe recipe{coordinates.low(closed).indices(), {}};
+        auto row = coordinates >> closed;
+        while(!row.empty()) {
+            size_t pivot = row.size() - 1;
+            if(pivot >= pivots.size() || pivots[pivot] == absent) return {};
+            recipe.slots.push_back(pivots[pivot]);
+            row ^= events[pivots[pivot]];
+        }
+        return recipe;
+    }
+    // Pullbacks only serve construction; incidence already records them.
+    void finish() { std::vector<Bits>().swap(closed_parts); }
+
+private:
+    std::vector<Bits> closed_parts;
+};
+// One draw's observation boundary on a fixed layout: the RHS bit of every
+// appended row and copies of the open rows reached so far. Rows are appended in
+// layout order, so incidence beyond the appended prefix is not yet reached.
 struct ReferenceHistoryBoundary {
     const ReferenceNetwork& parent;
+    const ReferenceHistoryLayout* layout = nullptr;
     ReferenceBoundary boundary;
     Bits actual_closed, previous_x;
-    std::vector<Bits> closed_parts;
-    std::vector<size_t> pivots, open_slots;
     std::vector<int> rhs;
-    std::vector<std::vector<size_t>> closed_incidence, physical_incidence;
-    size_t contradictions = 0, appended_rows = 0, rhs_updates = 0;
-    static constexpr size_t absent = std::numeric_limits<size_t>::max();
-    ReferenceHistoryBoundary(const ReferenceNetwork& parent, const Bits& sector)
-        : parent(parent), actual_closed(sector.low(parent.closed.size())), closed_incidence(parent.closed.size()),
-          physical_incidence(parent.closed_images.size()) {}
+    size_t contradictions = 0, rhs_updates = 0;
+    ReferenceHistoryBoundary(
+            const ReferenceNetwork& parent, const Bits& sector, const ReferenceHistoryLayout* layout = nullptr)
+        : parent(parent), layout(layout), actual_closed(sector.low(parent.closed.size())) {}
     void toggle(size_t index) {
-        auto slot = open_slots[index];
-        if(slot == absent) {
+        auto slot = layout->open_slots[index];
+        if(slot == ReferenceHistoryLayout::absent) {
             if(rhs[index]) contradictions--;
             else contradictions++;
         } else boundary.outcomes[slot] ^= 1;
@@ -238,65 +306,46 @@ struct ReferenceHistoryBoundary {
         if(frame.x == previous_x) return;
         auto delta = frame.x ^ previous_x;
         Bits closed_delta;
-        xor_rows_prefix(closed_delta, parent.closed_images, delta, parent.closed_images.size());
+        xor_lists(closed_delta, parent.closed_images, delta, parent.closed.size());
         actual_closed ^= closed_delta;
-        closed_delta.each([&](size_t bit) {
-            for(auto index : closed_incidence[bit]) toggle(index);
-        });
-        delta.each([&](size_t bit) {
-            if(bit < physical_incidence.size())
-                for(auto index : physical_incidence[bit]) toggle(index);
-        });
+        if(!rhs.empty()) {
+            auto reached = [&](const std::vector<size_t>& incidence) {
+                for(auto index : incidence) {
+                    if(index >= rhs.size()) break;
+                    toggle(index);
+                }
+            };
+            closed_delta.each([&](size_t bit) { reached(layout->closed_incidence[bit]); });
+            delta.each([&](size_t bit) {
+                if(bit < layout->physical_incidence.size()) reached(layout->physical_incidence[bit]);
+            });
+        }
         previous_x = frame.x;
         boundary.zero = contradictions != 0;
     }
-    // Resolve through the echelon rows maintained during causal observation.
+    // Resolve through the echelon rows reached during causal observation.
     // No new factorization, history matrix or resource is constructed here.
-    int value(const Bits& coordinates) const {
-        int result = coordinates.parity_and(actual_closed);
-        auto row = coordinates >> parent.closed.size();
-        while(!row.empty()) {
-            size_t pivot = row.size() - 1;
-            if(pivot >= pivots.size() || pivots[pivot] == absent)
-                throw std::invalid_argument("terminal reference requires the complete causal history");
-            size_t slot = pivots[pivot];
-            row ^= boundary.events[slot];
-            result ^= boundary.outcomes[slot];
-        }
+    int value(const size_t* closed, const size_t* closed_end, const size_t* slot, const size_t* slot_end) const {
+        int result = 0;
+        for(; closed != closed_end; ++closed) result ^= actual_closed.bit(*closed);
+        for(; slot != slot_end; ++slot) result ^= boundary.outcomes[*slot];
         return result;
     }
-    void append(const Bits& coordinates, int outcome, const Bits* physical = nullptr) {
-        appended_rows++;
-        auto row = coordinates >> parent.closed.size();
-        int value = outcome ^ coordinates.parity_and(actual_closed);
-        // Only wholly closed certified rows have this physical-frame pullback.
-        const bool direct = row.empty() && physical;
-        auto closed = direct ? Bits{} : coordinates.low(parent.closed.size());
-        while(!row.empty()) {
-            auto pivot = row.size() - 1;
-            if(pivot >= pivots.size() || pivots[pivot] == absent) break;
-            auto slot = pivots[pivot];
-            row ^= boundary.events[slot];
-            closed ^= closed_parts[slot];
-            value ^= boundary.outcomes[slot];
-        }
+    int value(const HistoryRecipe& recipe) const {
+        return value(recipe.closed.data(), recipe.closed.data() + recipe.closed.size(), recipe.slots.data(),
+                recipe.slots.data() + recipe.slots.size());
+    }
+    void append(int outcome) {
         size_t index = rhs.size();
+        int value = outcome ^ this->value(layout->closed_bits.begin(index), layout->closed_bits.end(index),
+                                      layout->slots.begin(index), layout->slots.end(index));
         rhs.push_back(value);
-        if(row.empty()) {
-            open_slots.push_back(absent);
-            contradictions += value;
-        } else {
-            auto pivot = row.size() - 1;
-            if(pivot >= pivots.size()) pivots.resize(pivot + 1, absent);
-            auto slot = boundary.events.size();
-            pivots[pivot] = slot;
-            open_slots.push_back(slot);
-            boundary.events.push_back(std::move(row));
+        auto slot = layout->open_slots[index];
+        if(slot == ReferenceHistoryLayout::absent) contradictions += value;
+        else {
+            boundary.events.push_back(layout->events[slot]);
             boundary.outcomes.push_back(value);
-            closed_parts.push_back(closed);
         }
-        if(direct) physical->each([&](size_t bit) { physical_incidence.at(bit).push_back(index); });
-        else closed.each([&](size_t bit) { closed_incidence[bit].push_back(index); });
         boundary.zero = contradictions != 0;
     }
 };
@@ -326,18 +375,6 @@ struct ReferenceRecordMap {
             });
             value.trim();
             out.labels.push_back(std::move(value));
-        }
-        return out;
-    }
-    std::optional<Bits> affine_values(const std::vector<Bits>& masks, const ReferenceRows& rows, size_t closed,
-            const Frame& frame, const Bits& sector) const {
-        for(const auto& row : rows.labels)
-            if(row.size() > closed) return {};
-        Bits out;
-        for(size_t j = 0; j < masks.size(); j++) {
-            int value = rows.labels[j].parity_and(sector);
-            masks[j].each([&](size_t bit) { value ^= frame.x.bit(physical.at(bit)); });
-            if(value) out.set(j);
         }
         return out;
     }

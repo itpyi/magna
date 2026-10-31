@@ -109,8 +109,9 @@ struct SamplingNetworkSession {
     size_t geometry_updates = 0, geometry_reuses = 0, term_visits = 0, tensor_expansions = 0;
     size_t resource_constructions = 0, coordinate_constructions = 0;
     bool zero = false;
-    SamplingNetworkSession(const SamplingNetworkPlan& prepared, const BoundaryTracePlan& plan, const Bits& sector)
-        : prepared(prepared), plan(plan), committed(*prepared.parent, sector) {
+    SamplingNetworkSession(const SamplingNetworkPlan& prepared, const BoundaryTracePlan& plan, const Bits& sector,
+            const ReferenceHistoryLayout* layout = nullptr)
+        : prepared(prepared), plan(plan), committed(*prepared.parent, sector, layout) {
         common.exponents = plan.compiled.plan.magic;
         const auto& n = *prepared.parent->reference;
         Bits rhs;
@@ -118,11 +119,11 @@ struct SamplingNetworkSession {
             if(sector.bit(j)) rhs.set(j);
         for(size_t j = 0; j < n.reference_outcomes.size(); j++)
             if(n.reference_outcomes[j]) rhs.flip(j);
-        if(!n.event_support->factor.consistent(rhs)) {
+        if(!n.event_support->consistent(rhs)) {
             zero = true;
             return;
         }
-        auto shift = n.event_support->factor.solve(rhs);
+        auto shift = n.event_support->solve(rhs);
         if(!prepared.certificate) return;
         if(prepared.contraction) quadratic = prepared.contraction->pulled_reference;
         else {
