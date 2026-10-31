@@ -49,7 +49,7 @@ struct NetworkMaps {
         : dimension(traced.clifford.n), kept(keep), forms(masks(traced.clifford.boundary)), bra(masks(traced.bra)),
           ket(masks(traced.ket)), upper(traced.clifford.upper), linear(traced.clifford.linear) {
         std::vector<Bits> equations(forms.begin() + keep, forms.end());
-        events = std::make_shared<TraceFactor>(equations, dimension);
+        events = std::make_shared<TraceFactor>(equations, dimension, true);
         auto restrict = [&](const std::vector<Bits>& rows, std::vector<Bits>& mapped) {
             for(const auto& row : rows) mapped.push_back(xors(events->dual, row));
         };
@@ -126,6 +126,9 @@ struct CompiledNetwork {
     std::shared_ptr<const NetworkMaps> maps;
     bool shared_maps = false;
     std::shared_ptr<const TraceFactor> event_support;
+    // Frame locations of each event row. Rows touch few locations, so the frame
+    // enters in time proportional to the event incidence, not the frame width.
+    IndexLists event_frame;
     std::vector<int> reference_outcomes;
     PhaseTerms magic, fixed_phase;
     std::vector<int> bra_offsets, ket_offsets;
@@ -143,6 +146,16 @@ struct CompiledNetwork {
     double reduction_seconds = 0, resource_seconds = 0;
     std::string joint_limit, inherited_limit;
 
+    // Event RHS of the actual outcomes and frame, relative to the reference outcomes.
+    Bits event_rhs(const Frame& frame, const std::vector<int>& outcomes) const {
+        Bits rhs;
+        for(size_t j = 0; j < outcomes.size(); j++) {
+            int bit = outcomes[j] ^ reference_outcomes[j];
+            for(auto k = event_frame.begin(j); k != event_frame.end(j); k++) bit ^= frame.x.bit(*k);
+            if(bit) rhs.set(j);
+        }
+        return rhs;
+    }
     size_t uniform_term_bound() const {
         if(!inherited) return 0;
         auto count = inherited->term_bound();
@@ -180,19 +193,15 @@ struct CompiledNetwork {
         auto& gamma = reduced.pairing;
         gamma = restricted;
         auto& t = gamma.clifford;
-        Bits rhs;
-        for(size_t j = 0; j < outcomes.size(); j++)
-            if(outcomes[j] ^ traced.clifford.boundary[boundary.keep.size() + j].second ^
-                    boundary.events[j].parity_and(frame.x))
-                rhs.set(j);
+        auto rhs = event_rhs(frame, outcomes);
         d.event_rank = event_support->factor.pivots.size();
         d.support_bits = event_support->factor.kernel.size();
-        if(!event_support->factor.consistent(rhs)) {
+        if(!event_support->consistent(rhs)) {
             b.zero = true;
             d.support_seconds = elapsed();
             return reduced;
         }
-        auto shift = event_support->factor.solve(rhs);
+        auto shift = event_support->solve(rhs);
         for(size_t j = 0; j < t.n; j++) t.linear[j] = mod4(t.linear[j] + 2 * maps->event_polar[j].parity_and(shift));
         t.constant = mod8(t.constant + 2 * qvalue(shift, traced.clifford.linear, traced.clifford.upper) +
                 4 * (boundary.x.parity_and(frame.z) ^ boundary.z.parity_and(frame.x)));
@@ -298,14 +307,12 @@ struct CompiledNetwork {
         diagnostics.event_rows = boundary.events.size();
         diagnostics.phase_axes = phase_dimension;
         tensor = restricted.clifford;
-        Bits rhs;
-        for(size_t j = 0; j < outcomes.size(); j++)
-            if(outcomes[j] ^ reference_outcomes[j] ^ boundary.events[j].parity_and(frame.x)) rhs.set(j);
-        if(!event_support->factor.consistent(rhs)) {
+        auto rhs = event_rhs(frame, outcomes);
+        if(!event_support->consistent(rhs)) {
             tensor.zero = true;
             return result;
         }
-        auto shift = event_support->factor.solve(rhs);
+        auto shift = event_support->solve(rhs);
         result.resource = certificate.reference;
         auto& q = result.resource.quotient;
         for(size_t j = 0; j < tensor.n; j++)
@@ -395,9 +402,10 @@ struct NetworkPayload {
         for(const auto& [i, p] : f.pivots) n += 8 + bits(p.first) + bits(p.second);
         return n;
     }
+    static size_t lists(const IndexLists& l) { return 8 * (l.offsets.size() + l.items.size()); }
     size_t trace(const std::shared_ptr<const TraceFactor>& p) {
         if(!p || !shared.insert(p.get()).second) return 0;
-        return 8 + rows(p->rows) + rows(p->dual) + factor(p->factor);
+        return 8 + rows(p->rows) + rows(p->dual) + factor(p->factor) + lists(p->zero_columns) + rows(p->solve_columns);
     }
     static size_t quadratic(const Quadratic& q) { return 4 * q.linear.size() + rows(q.upper) + 4; }
     size_t contraction(const std::shared_ptr<const PhaseContraction>& plan) {
@@ -440,7 +448,7 @@ struct NetworkPayload {
                 4 *
                         (n.reference_outcomes.size() + n.bra_offsets.size() + n.ket_offsets.size() +
                                 n.reference_exponents.size()) +
-                trace(n.event_support);
+                lists(n.event_frame) + trace(n.event_support);
         if(n.joint) bytes += certificate(*n.joint);
         if(n.stable_pairing) bytes += certificate(*n.stable_pairing);
         if(n.inherited && shared.insert(n.inherited.get()).second) bytes += certificate(*n.inherited);
@@ -463,6 +471,7 @@ inline CompiledNetwork compile_network(const TracePreparation& preparation, cons
         bool stable_reference = false) {
     CompiledNetwork network;
     network.boundary = boundary;
+    for(const auto& row : boundary.events) network.event_frame.push(row.indices());
     network.physical = preparation.physical;
     network.stable_requested = stable_reference;
     network.magic = preparation.magic;
@@ -512,7 +521,7 @@ inline CompiledNetwork compile_network(const TracePreparation& preparation, cons
         restrict(r.ket, maps.restricted_ket);
     }
     if(tensor.zero)
-        network.event_support = std::make_shared<TraceFactor>(std::vector<Bits>(boundary.events.size()), tensor.n);
+        network.event_support = std::make_shared<TraceFactor>(std::vector<Bits>(boundary.events.size()), tensor.n, true);
     network.reference_exponents = exponents;
     network.fixed_source.n = network.phase_dimension;
     network.fixed_source.linear.resize(network.phase_dimension);
