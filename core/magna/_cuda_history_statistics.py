@@ -88,11 +88,16 @@ class _HistoryStatistics:
         partial = cp.empty((blocks, 8), dtype=cp.float64)
         continuation = cp.empty(count, dtype=cp.uint8)
         output = cp.empty(8, dtype=cp.float64)
+        flags = cp.zeros(1, dtype=cp.uint32)
         self.module.get_function('history_moments')((blocks,), (128,),
             (exact.coefficients, exact.powers, exact.status, proposal_rank, weights,
-             np.int32(likelihood is not None), np.uint64(count), np.int32(queries), partial, continuation))
+             np.int32(likelihood is not None), np.uint64(count), np.int32(queries), partial, continuation, flags))
         self.module.get_function('history_finish')((1,), (128,),
             (partial, np.uint64(blocks), output))
+        flag = int(flags.get()[0])
+        if flag:
+            raise ValueError(f'GPU probability summary rejected values (flags={flag}: '
+                             '1=nonreal, 16=query contract)')
         host = output.get()
         return (_ScaledMoments(int(host[5]), host[:2], host[2:5], host[6:8].astype(np.int64)),
                 continuation.get())

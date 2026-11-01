@@ -108,12 +108,17 @@ __device__ void reduce_block(double shared[8][128],double* state) {
 }
 extern "C" __global__ void history_moments(const i64* coefficients,const int* powers,const int* status,
         const i64* ranks,const double* weights,int weighted,u64 shots,int queries,
-        double* partial,unsigned char* continuation) {
+        double* partial,unsigned char* continuation,unsigned int* flags) {
     __shared__ double shared[8][128];
     u64 shot=(u64)blockIdx.x*128+threadIdx.x;
     double state[8]={0.,0.,0.,0.,0.,0.,0.,0.};
     if(shot<shots) {
-        bool ok=true;for(int j=0;j<queries;++j)if(status[shot*queries+j])ok=false;
+        bool ok=true;
+        for(int j=0;j<queries;++j) {
+            int code=status[shot*queries+j];
+            if(code)ok=false;
+            if(code>1)atomicOr(flags,code==2?16U:1U);
+        }
         i64 exponent[2]={0,0};
         if(ok)ok=contribution(coefficients+shot*queries*4,powers+shot*queries,queries,
                                ranks[shot],weighted?weights[shot]:1.,state,exponent);

@@ -151,6 +151,10 @@ class HistoryStatisticsGpuTests(unittest.TestCase):
         actual, flags, _ = self.reduce([[scalar(1, -1)]]*130, status=status)
         self.assertEqual(int(flags.sum()), 1)
         self.assertEqual(actual.count, 129)
+        for code, flag in ((2, 16), (3, 1)):
+            status[128, 0] = code
+            with self.assertRaisesRegex(ValueError, f'flags={flag}'):
+                self.reduce([[scalar(1, -1)]]*130, status=status)
 
 
 if __name__ == '__main__':
