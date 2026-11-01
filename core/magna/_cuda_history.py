@@ -46,7 +46,7 @@ class _CudaHistory:
         if self._cp is not None:
             return
         self._cp = cp
-        self.control = cp.RawModule(code=_read_cuda_source('history_control.cu'), options=('--std=c++11',))
+        self.control = cp.RawModule(code=_read_cuda_source('history_rng.cu')+_read_cuda_source('history_control.cu'), options=('--std=c++11',))
         self.statistics = _HistoryStatistics(cp)
         self.sector_base = self._array(self.metadata['sector_base'], '<u8')
         self.sector_columns = self._array(self.metadata['sector_columns'], '<u8')
@@ -80,7 +80,7 @@ class _CudaHistory:
                 arrays['upper'] = cp.asarray(_symmetric_upper(np.frombuffer(entry['upper'], '<u8'), entry['n']))
                 self.entries.append(arrays)
             maximum = max([raw['n'], *(entry['n'] for entry in self.metadata['entries'])])
-            source = _read_cuda_source('history_sampling.cu')
+            source = _read_cuda_source('history_rng.cu')+_read_cuda_source('history_sampling.cu')
             for key, value in dict(MAX_N=maximum, MAX_OPEN=self.metadata['open_bits'],
                 MAX_PENDING=max((site['pending_count'] for site in self.sites), default=0)).items():
                 source = source.replace('@'+key+'@', str(value))

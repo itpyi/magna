@@ -4,6 +4,7 @@
 #include "oracles.hpp"
 namespace {
 PyMethodDef methods[] = {
+        {"cuda_history_rng_words", cuda_history_rng_words, METH_VARARGS, "Native addressed RNG reference."},
         {"cuda_oversized_weight_plan", cuda_oversized_weight_plan, METH_NOARGS, "Construct an oversized entry plan."},
         {"file_execution_faults", file_execution_faults, METH_VARARGS,
                                  "Export native original or feedback assignments."},

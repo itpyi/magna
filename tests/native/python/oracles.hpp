@@ -3,6 +3,16 @@
 // core/magna/native/bindings/module.hpp, whose helpers they use.
 #pragma once
 namespace {
+PyObject* cuda_history_rng_words(PyObject*, PyObject* args) {
+    try {
+        unsigned long long seed, shot, domain;
+        if(!PyArg_ParseTuple(args, "KKK", &seed, &shot, &domain)) return nullptr;
+        CudaPhilox rng(shot, cuda_history_seed(seed, domain));
+        std::vector<uint64_t> words(32);
+        for(auto& word : words) word = rng();
+        return cuda_output_bytes(words);
+    } catch(...) { return execution_error(); }
+}
 PyObject* cuda_oversized_weight_plan(PyObject*, PyObject*) {
     try {
         CudaQueryPlan base;

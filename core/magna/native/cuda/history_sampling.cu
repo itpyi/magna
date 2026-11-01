@@ -252,25 +252,6 @@ extern "C" __global__ void history_affine_entry(
     }
 }
 
-__device__ hu64 history_domain(hu64 seed,hu64 domain) {
-    hu64 x=seed+0x9e3779b97f4a7c15ULL*domain;
-    x=(x^(x>>30))*0xbf58476d1ce4e5b9ULL;x=(x^(x>>27))*0x94d049bb133111ebULL;return x^(x>>31);
-}
-struct HistoryPhilox {
-    hu64 shot,seed,block,saved;bool have;
-    __device__ HistoryPhilox(hu64 s,hu64 k):shot(s),seed(k),block(0),saved(0),have(false){}
-    __device__ hu64 next() {
-        if(have){have=false;return saved;}
-        unsigned a=(unsigned)shot,b=(unsigned)(shot>>32),c=(unsigned)block,d=(unsigned)(block>>32);
-        unsigned k0=(unsigned)seed,k1=(unsigned)(seed>>32);++block;
-        for(int r=0;r<10;++r) {
-            hu64 p0=0xd2511f53ULL*a,p1=0xcd9e8d57ULL*c;
-            a=(unsigned)(p1>>32)^b^k0;b=(unsigned)p1;c=(unsigned)(p0>>32)^d^k1;d=(unsigned)p0;
-            k0+=0x9e3779b9U;k1+=0xbb67ae85U;
-        }
-        saved=(hu64)c|((hu64)d<<32);have=true;return (hu64)a|((hu64)b<<32);
-    }
-};
 extern "C" __global__ void history_affine_draw(
     hu64* frames,hu64* envelope_base,const hu64* envelope_basis,const unsigned char* envelope_valid,
     const long long* envelope_rank,long long* proposal_rank,hu64 shots,hu64 seed,hu64 offset,
@@ -284,7 +265,7 @@ extern "C" __global__ void history_affine_draw(
                 const hu64* row=basis+(hu64)pivot*pw;
                 if((row[pivot/64]>>(pivot%64))&1)for(int w=0;w<pw;++w)base[w]^=row[w];
             }
-        HistoryPhilox rng(offset+shot,history_domain(seed,(hu64)site+2));
+        HistoryRng rng{offset+shot,history_seed(seed,(hu64)site+2),0,0,0};
         for(int pivot=0;pivot<pending;++pivot) {
             const hu64* row=basis+(hu64)pivot*pw;
             if(((row[pivot/64]>>(pivot%64))&1) && (rng.next()&1))

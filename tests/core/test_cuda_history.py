@@ -42,6 +42,22 @@ class DeviceHistoryTests(unittest.TestCase):
     def setUpClass(cls):
         cls.cp = require_cuda()
 
+    def test_device_philox_matches_native_domains_bit_for_bit(self):
+        from magna._cuda_source import _read_cuda_source
+        from tests.support.native_testing import load
+        source = _read_cuda_source('history_rng.cu') + r'''
+extern "C" __global__ void words(u64* out, u64 seed, u64 shot, u64 domain) {
+    HistoryRng rng{shot, history_seed(seed, domain), 0, 0, 0};
+    for(int j=0;j<32;++j)out[j]=rng.next();
+}
+'''
+        kernel = self.cp.RawModule(code=source).get_function('words')
+        output = self.cp.empty(32, dtype=self.cp.uint64)
+        for seed, shot, domain in ((0, 0, 1), (2**64-1, 2**64-1, 2),
+                                   (791, 2**32+17, 40), (2**63, 17, 2**64-1)):
+            kernel((1,), (1,), (output, np.uint64(seed), np.uint64(shot), np.uint64(domain)))
+            expected = np.frombuffer(load().cuda_history_rng_words(seed, shot, domain), dtype='<u8')
+            np.testing.assert_array_equal(output.get(), expected)
 
     def test_irrational_history_probability_and_affine_weights(self):
         expected = (1 - math.sqrt(0.5)) / 2
