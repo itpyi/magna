@@ -496,14 +496,15 @@ def history_scientific_rows(coefficients, powers, proposal_rank, likelihood=None
             mantissa, shift = math.frexp(float(normalized))
             return mantissa, exponent+shift
         for shot in range(len(c)):
-            acceptance = scalar(c[shot, 0], p[shot, 0])
-            target = scalar(c[shot, 1], p[shot, 1]) if c.shape[1] == 2 else Decimal(0)
-            if not 0 <= target <= acceptance:
+            history = scalar(c[shot, 0], p[shot, 0])
+            acceptance = scalar(c[shot, 1], p[shot, 1])
+            target = scalar(c[shot, 2], p[shot, 2]) if c.shape[1] == 3 else Decimal(0)
+            if not 0 <= target <= acceptance <= history:
                 raise ValueError('invalid history masses')
             divisor = two**(-int(proposal_rank[shot]))
             weight = Decimal.from_float(float(likelihood[shot])) if likelihood is not None else Decimal(1)
             rows.append((scientific(acceptance*weight/divisor),
-                         scientific((acceptance-target)*weight/divisor) if c.shape[1] == 2 else (0., 0)))
+                         scientific((acceptance-target)*weight/divisor) if c.shape[1] == 3 else (0., 0)))
     return rows
 
 

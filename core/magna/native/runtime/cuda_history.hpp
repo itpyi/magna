@@ -277,11 +277,21 @@ inline CudaHistoryPlan build_cuda_history(CompiledExperiment& run, const CudaExp
         }
     }
     if(out.entries.empty()) throw std::invalid_argument("CUDA sampling parent has no prepared affine entries");
+    auto forms = run.history->contraction ? transpose(run.history->contraction->columns, out.open_bits)
+                                         : network.maps->restricted_forms;
+    std::vector<Bits> equations;
+    std::vector<CudaQueryAffine> cap_values;
     CudaHistoryKnowledge committed;
     std::vector<CudaQueryAffine> contradictions;
     for(auto& site : out.sites) {
         for(size_t j = 0; j < site.pending.size(); j++) {
             auto value = auxiliary(out.sector_bits + site.observation_first + j);
+            if(site.labels[j].size() > out.sector_bits) {
+                auto open = site.labels[j] >> out.sector_bits;
+                equations.push_back(xors(forms, open));
+                cap_values.push_back(cuda_query_xor(value, cuda_query_xor(
+                        cuda_affine_sum(out.closed, site.labels[j].low(out.sector_bits)), cuda_affine_sum(out.open_base, open))));
+            }
             auto row = site.labels[j] >> out.sector_bits;
             auto rhs = cuda_query_xor(value, cuda_affine_sum(out.closed, site.labels[j].low(out.sector_bits)));
             if(!row.empty()) {
@@ -291,6 +301,16 @@ inline CudaHistoryPlan build_cuda_history(CompiledExperiment& run, const CudaExp
             }
         }
     }
+    auto mass = run.history->contraction ? out.mother : cuda_query_entries(out.mother, resource);
+    auto cap = [&](CudaQueryPlan query) {
+        auto result = cuda_query_cap(query, equations, cap_values);
+        if(!equations.empty()) result.mode = 4;
+        return result;
+    };
+    if(mass.mode == 5) for(auto& component : mass.components) component = cap(std::move(component));
+    else mass = cap(std::move(mass));
+    // The acceptance <= history check requires this mass even for affine proposals.
+    out.terminal.push_back(cuda_query_scale(std::move(mass), run.target_normalization));
     auto terminal = [&](const FileBoundary& engine, const char* purpose, bool target) {
         const auto& terminal_parent = *engine.reference_networks.at(purpose);
         std::vector<CudaQueryAffine> caps;
@@ -312,7 +332,7 @@ inline CudaHistoryPlan build_cuda_history(CompiledExperiment& run, const CudaExp
     out.terminal.push_back(terminal(*experiment.engine, "acceptance", false));
     if(experiment.target) out.terminal.push_back(terminal(*experiment.target, "fidelity", true));
     // Match the CPU contribution acceptance * target_normalization.
-    out.terminal[0] = cuda_query_scale(std::move(out.terminal[0]), run.target_normalization);
+    out.terminal[1] = cuda_query_scale(std::move(out.terminal[1]), run.target_normalization);
     return out;
 }
 

@@ -68,8 +68,8 @@ class CudaHistoryCpuTests(unittest.TestCase):
             complete = _native._cuda_history_cpu_reference(handle, 2026, shot, (inputs,))
             exact = complete['queries']
             history_mass, acceptance_mass, error_mass = complete['masses'][0]
-            self.assertEqual(number(exact[0]), number(acceptance_mass))
-            self.assertAlmostEqual(number(exact[0])-number(exact[1]), number(error_mass), places=14)
+            self.assertEqual(number(exact[1]), number(acceptance_mass))
+            self.assertAlmostEqual(number(exact[1])-number(exact[2]), number(error_mass), places=14)
             expected = _native.cuda_history_replay(handle, 2026, shot, (inputs,), (inputs,))
             self.assertEqual(expected, complete['contribution'])
             acceptance = math.ldexp(*expected[0])
@@ -106,12 +106,13 @@ class CudaHistoryCpuTests(unittest.TestCase):
         experiment, metadata = _native.make_cuda_experiment(compiled._execution.handle)
         handle, plan = _native.make_cuda_history(experiment)
         norm = ExactScalar(*metadata['target_normalization'])
-        self.assertEqual(plan['terminal'][0]['mode'], 5)
+        self.assertEqual(plan['terminal'][1]['mode'], 5)
         for shot in range(8):
             inputs = _native.cuda_history_replay(handle, 42, shot, (), ())
             complete = _native._cuda_history_cpu_reference(handle, 42, shot, (inputs,))
-            a, f = map(lambda value: ExactScalar(*value), complete['queries'])
+            p, a, f = map(lambda value: ExactScalar(*value), complete['queries'])
             old_p, old_a, old_e = map(lambda value: ExactScalar(*value), complete['masses'][0])
+            self.assertEqual(p, old_p*norm)
             self.assertEqual(a, old_a*norm)
             self.assertEqual(a-f, old_e)
             self.assertEqual(complete['contribution'][0], (.5, 1))

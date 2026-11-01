@@ -84,7 +84,9 @@ class HistoryStatisticsGpuTests(unittest.TestCase):
 
     def reduce(self, rows, ranks=None, status=None):
         cp = self.cp
-        c, p = arrays(rows)
+        c, p = arrays([[row[0], *row] for row in rows])
+        if status is not None:
+            status = np.column_stack((np.zeros(len(rows), dtype=np.int32), status))
         ranks = [0]*len(c) if ranks is None else ranks
         exact = SimpleNamespace(coefficients=cp.asarray(c), powers=cp.asarray(p),
             status=cp.zeros(p.shape, dtype=cp.int32) if status is None else cp.asarray(status))
@@ -118,7 +120,7 @@ class HistoryStatisticsGpuTests(unittest.TestCase):
         for rank, expected in ((0, 2.**-1074), (1074, 1.)):
             ranks, weights = history._statistics_inputs(self.cp.asarray([rank], dtype=self.cp.int64),
                 self.cp.asarray([2.**-1074]))
-            c, p = arrays([[scalar(5, -3)]])
+            c, p = arrays([[scalar(5, -3), scalar(5, -3)]])
             exact = SimpleNamespace(coefficients=self.cp.asarray(c), powers=self.cp.asarray(p),
                                     status=self.cp.zeros(p.shape, dtype=self.cp.int32))
             actual, flags = _HistoryStatistics(self.cp).reduce(exact, proposal_rank=ranks, likelihood=weights)
@@ -144,6 +146,15 @@ class HistoryStatisticsGpuTests(unittest.TestCase):
         completed = _merge_scaled([actual, _scientific_moments([reference[0]])])
         self.assertEqual(completed.count, 3)
         self.assert_summary(completed, _scientific_moments(reference))
+
+    def test_history_mass_checks_the_acceptance_bound(self):
+        cp = self.cp
+        c, p = arrays([[scalar(1, -1), scalar()]])
+        exact = SimpleNamespace(coefficients=cp.asarray(c), powers=cp.asarray(p),
+                                status=cp.zeros(p.shape, dtype=cp.int32))
+        moments, continuation = _HistoryStatistics(cp).reduce(exact, proposal_rank=cp.zeros(1, dtype=cp.int64))
+        self.assertEqual(moments.count, 0)
+        np.testing.assert_array_equal(continuation, [1])
 
     def test_only_guard_status_replays(self):
         status = np.zeros((130, 1), dtype=np.int32)
