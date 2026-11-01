@@ -26,19 +26,54 @@ struct TraceFactor {
     size_t n, bytes = 0;
     std::vector<Bits> rows, dual;
     Factor factor;
-    TraceFactor(const std::vector<Bits>& r, size_t dim) : n(dim), rows(r), factor(r, dim) {
+    // Optional column form for event supports, indexed by row: the zero
+    // combinations and the solution bits containing each row. Both maps are
+    // linear, so an RHS is tested and solved in time proportional to its
+    // support with the factor's results.
+    IndexLists zero_columns;
+    std::vector<Bits> solve_columns;
+    TraceFactor(const std::vector<Bits>& r, size_t dim, bool columns = false) : n(dim), rows(r), factor(r, dim) {
         dual = transpose(factor.kernel, n);
+        if(columns) {
+            zero_columns = transpose_lists(factor.zeros, rows.size());
+            // Factor::solve sets pivot p from its provenance and earlier pivots.
+            std::map<size_t, Bits> forms;
+            solve_columns.resize(rows.size());
+            for(const auto& [p, rt] : factor.pivots) {
+                auto form = rt.second;
+                for(const auto& [k, earlier] : forms)
+                    if(rt.first.bit(k)) form ^= earlier;
+                for(auto j : form.indices()) solve_columns[j].set(p);
+                forms.emplace(p, std::move(form));
+            }
+        }
         auto count = [&](const Bits& b) { bytes += sizeof(Bits) + b.w.capacity() * sizeof(uint64_t); };
         for(auto& b : rows) count(b);
         for(auto& b : dual) count(b);
         for(auto& b : factor.zeros) count(b);
         for(auto& b : factor.kernel) count(b);
+        for(auto& b : solve_columns) count(b);
+        bytes += (zero_columns.offsets.size() + zero_columns.items.size()) * sizeof(size_t);
         for(auto& [p, rt] : factor.pivots) {
             bytes += sizeof(p) + 4 * sizeof(void*);
             count(rt.first);
             count(rt.second);
         }
         bytes += sizeof(TraceFactor);
+    }
+    bool consistent(const Bits& rhs) const {
+        if(solve_columns.size() != rows.size()) throw std::logic_error("event factor requires its column form");
+        Bits residual;
+        xor_lists(residual, zero_columns, rhs, factor.zeros.size());
+        return residual.empty();
+    }
+    Bits solve(const Bits& rhs) const {
+        if(solve_columns.size() != rows.size()) throw std::logic_error("event factor requires its column form");
+        Bits shift;
+        rhs.each([&](size_t j) {
+            if(j < rows.size()) shift ^= solve_columns[j];
+        });
+        return shift;
     }
 };
 struct TraceFactorCache {

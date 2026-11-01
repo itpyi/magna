@@ -96,6 +96,28 @@ class NativeCudaBridgeTests(unittest.TestCase):
             for value, name in zip(row, ('history_mass', 'acceptance', 'error')):
                 self.assertEqual(value, (tuple(sample[name]['coefficients']), sample[name]['power']))
 
+    def test_public_draws_match_named_noise_for_every_channel_kind(self):
+        # Public draws transport each drawn action through images resolved once
+        # per noise site; the reference names every action and packs it.
+        # Explicit correlated actions exercise the named path inside a draw.
+        pair = ', '.join(['1/40'] * 15)
+        plan = CudaExperiment(compile_circuit(parse_circuit(
+            'H 0\nT 0\nCX 0 1\nX_ERROR(1/5) 1\nY_ERROR(1/7) 0\nZ_ERROR(1/6) 2\n'
+            'DEPOLARIZE1(1/3) 1\nPAULI_CHANNEL_1(1/10, 1/9, 1/8) 2\nH 2\nT 1\nCX 1 2\n'
+            f'DEPOLARIZE2(1/2) 0 1 1 2\nPAULI_CHANNEL_2({pair}) 0 2\n'
+            'CORRELATED_ERROR(1/4) X0 Z1\nELSE_CORRELATED_ERROR(1/3) Y2\nT 2\n'
+            'M(1/4) 0\nCX rec[-1] 1'),
+            task={'outputs': [1, 2]}, ideal_state=parse_circuit('H 0\nT 0\nCX 0 1\nH 1\nT 1')))
+        rng = Random(20261028)
+        seeds = [rng.getrandbits(64) for _ in range(160)]
+        batch = draw(plan, seeds)
+        self.assertGreater(batch.indices.size, 3 * len(seeds))
+        rng = Random(20261028)
+        public = [plan.compiled.sample(rng)['exact'] for _ in seeds]
+        for row, sample in zip(evaluate_noise(plan, batch), public):
+            for value, name in zip(row, ('history_mass', 'acceptance', 'error')):
+                self.assertEqual(value, (tuple(sample[name]['coefficients']), sample[name]['power']))
+
     def test_zero_shots_and_ownership(self):
         plan = self.magic_plan()
         batch = draw(plan, [])
