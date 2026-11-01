@@ -42,6 +42,26 @@ class DeviceHistoryTests(unittest.TestCase):
     def setUpClass(cls):
         cls.cp = require_cuda()
 
+    def test_entry_sum_preserves_fatal_statuses(self):
+        from magna._cuda_source import _read_cuda_source
+        cp = self.cp
+        kernel = cp.RawModule(code=_read_cuda_source('query_sum.cu')).get_function('sum_queries')
+        values = cp.zeros((4, 2, 4), dtype=cp.int64)
+        values[:, :, 0] = 1
+        values[0, 0, 0] = 1 << 62
+        values[1, 0, 2] = 1
+        values[2, 0, 0] = 1 << 62
+        flags = cp.zeros((4, 2), dtype=cp.int32)
+        flags[0, 1] = 2
+        weights = cp.zeros((2, 4), dtype=cp.int64)
+        weights[:, 0] = 1
+        result = cp.empty((4, 4), dtype=cp.int64)
+        powers, status = cp.empty(4, dtype=cp.int32), cp.empty(4, dtype=cp.int32)
+        kernel((1,), (128,), (values, cp.zeros((4, 2), dtype=cp.int32), flags,
+            weights, cp.zeros(2, dtype=cp.int64), result, powers, status,
+            np.uint64(4), np.int32(2), np.int32(1), np.int32(0), np.int32(1)))
+        np.testing.assert_array_equal(status.get(), [2, 3, 1, 0])
+
     def test_device_philox_matches_native_domains_bit_for_bit(self):
         from magna._cuda_source import _read_cuda_source
         from tests.support.native_testing import load

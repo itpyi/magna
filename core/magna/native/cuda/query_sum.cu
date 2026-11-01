@@ -14,11 +14,15 @@ extern "C" __global__ void sum_queries(const i64* input, const int* powers,
     u64 shot = (u64)blockIdx.x * blockDim.x + threadIdx.x;
     if (shot >= shots) return;
     i64 total[4] = {0, 0, 0, 0}, power = 0;
-    bool live = false, ok = true;
+    int failure = 0;
+    for (int term = 0; term < terms; ++term) {
+        int code = flags[shot * terms + term];
+        if (code == 2 || (code == 3 && failure != 2) || (code == 1 && !failure)) failure = code;
+    }
+    bool live = false, ok = failure == 0;
     const u64 bound = (1ULL << 61)-1;
     for (int term = 0; term < terms && ok; ++term) {
         u64 index = shot * terms + term;
-        if (flags[index]) { ok = false; break; }
         const i64* c = input + 4 * index;
         const i64* w = weights + 4 * term;
         i64 value[4] = {0, 0, 0, 0};
@@ -53,8 +57,8 @@ extern "C" __global__ void sum_queries(const i64* input, const int* powers,
     }
     u64 index = shot * queries + query;
     if (power < -2147483647LL || power > 2147483647LL) ok = false;
-    if (real_output && (total[2] || total[1] != -total[3])) ok = false;
+    if (ok && real_output && (total[2] || total[1] != -total[3])) { ok = false; failure = 3; }
     for (int j = 0; j < 4; ++j) output[4*index+j] = ok ? total[j] : 0;
     output_powers[index] = ok && live ? (int)power : 0;
-    output_flags[index] = ok ? 0 : 1;
+    output_flags[index] = ok ? 0 : failure ? failure : 1;
 }
