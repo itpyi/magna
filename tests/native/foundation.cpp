@@ -421,6 +421,75 @@ void check_quadratic_batches() {
         }
     }
 }
+void check_sparse_transpose() {
+    std::mt19937_64 random(20261029);
+    // Index lists must reproduce the packed transpose and prefix XOR exactly,
+    // including a nonempty output, mask bits beyond the width and final words.
+    for(size_t width : {size_t(0), size_t(1), size_t(63), size_t(64), size_t(65), size_t(300)})
+        for(size_t m : {size_t(0), size_t(1), size_t(64), size_t(130)})
+            for(size_t density : {size_t(2), size_t(97)}) {
+                std::vector<Bits> rows(m);
+                for(auto& row : rows)
+                    for(size_t k = 0; k < width; k++)
+                        if(random() % density == 0) row.set(k);
+                auto lists = transpose_lists(rows, width);
+                auto packed = transpose(rows, width);
+                for(size_t trial = 0; trial < 12; trial++) {
+                    Bits mask, initial;
+                    for(size_t k = 0; k < width + 70; k++)
+                        if(random() % (trial % 3 ? 29 : 2) == 0) mask.set(k);
+                    for(size_t i = 0; i < m; i++)
+                        if(trial % 2 && random() % 3 == 0) initial.set(i);
+                    auto sparse = initial, dense = initial;
+                    xor_lists(sparse, lists, mask, m);
+                    xor_rows_prefix(dense, packed, mask, packed.size());
+                    require(sparse == dense, "sparse transpose XOR equals packed prefix XOR");
+                }
+            }
+    bool rejected = false;
+    try {
+        transpose_lists({Bits::unit(65)}, 65);
+    } catch(const std::invalid_argument&) { rejected = true; }
+    require(rejected, "sparse transpose validates row width");
+}
+void check_event_factor_columns() {
+    std::mt19937_64 random(20261028);
+    // Low-rank rows give zero combinations and pivots whose provenance chains
+    // through earlier pivots; the column form must equal the row factor exactly.
+    for(size_t n : {size_t(1), size_t(9), size_t(70), size_t(130)})
+        for(size_t m : {size_t(0), size_t(5), size_t(64), size_t(150)})
+            for(size_t rank : {size_t(1), size_t(4), size_t(23)}) {
+                std::vector<Bits> basis(rank), rows(m);
+                for(auto& row : basis)
+                    for(size_t k = 0; k < n; k++)
+                        if(random() % 3 == 0) row.set(k);
+                for(auto& row : rows)
+                    for(const auto& b : basis)
+                        if(random() % 2) row ^= b;
+                TraceFactor event(rows, n, true);
+                for(size_t trial = 0; trial < 40; trial++) {
+                    Bits rhs;
+                    if(trial % 2) {
+                        // An image of the rows: always consistent.
+                        Bits value;
+                        for(size_t k = 0; k < n; k++)
+                            if(random() % 2) value.set(k);
+                        for(size_t j = 0; j < m; j++)
+                            if(rows[j].parity_and(value)) rhs.set(j);
+                    }
+                    for(size_t j = 0; j < m + 3; j++)
+                        if(random() % (trial % 4 ? 37 : 3) == 0) rhs.flip(j);
+                    require(event.consistent(rhs) == event.factor.consistent(rhs),
+                            "event factor column consistency equals row factor");
+                    require(event.solve(rhs) == event.factor.solve(rhs), "event factor column solve equals row factor");
+                }
+            }
+    bool rejected = false;
+    try {
+        TraceFactor({Bits::unit(0)}, 1).consistent(Bits::unit(0));
+    } catch(const std::logic_error&) { rejected = true; }
+    require(rejected, "event factor queries require the column form");
+}
 void check_composed_feedback_frames() {
     auto protocol = parse_circuit(
             "H 0\nM 0\nDETECTOR rec[-1]\nCONTROL[bits] det[-1] -> ctrl[0] ctrl[1]\n"
@@ -534,6 +603,30 @@ void check_reference_boundary() {
                 require(parent.affine_coordinates(records({Bits(mask)}), frame, Bits(sector)) ==
                                 affine_values({physical}, frame, Bits(sector)),
                         "certified closed membership retains actual mathematical branch and offsets");
+                if(!mask) continue;
+                // The prepared schedule replays these values from its fixed recipe.
+                CausalKnowledge known;
+                ReferenceHistoryLayout layout(parent);
+                ObservationTemplate schedule;
+                auto request = prepare_request({Bits(mask)}, known, parent, records, layout, schedule);
+                auto expected = affine_values({physical}, frame, Bits(sector));
+                require(request.affine == bool(expected) &&
+                                (!expected || affine_word(request, Bits(sector), frame) == *expected),
+                        "prepared affine recipes use actual sector and frame");
+            }
+            {
+                // A row determined by earlier rows of the same request is not
+                // inserted; its reduction chain names the rows that determine it.
+                CausalKnowledge known;
+                ReferenceHistoryLayout layout(parent);
+                ObservationTemplate schedule;
+                auto request = prepare_request({Bits(1), Bits(2), Bits(3)}, known, parent, records, layout, schedule);
+                require(request.pending == 3 && request.inserted[0] == 0 && request.inserted[1] == 1 &&
+                                request.inserted[2] == ReferenceHistoryLayout::absent &&
+                                std::vector<size_t>(request.chains.begin(2), request.chains.end(2)) ==
+                                        std::vector<size_t>{1, 0} &&
+                                schedule.rows.size() == 2,
+                        "dependent requested rows keep their consistency chain without insertion");
             }
             auto boundary = parent.project(
                     {Bits(3), Bits(3), Bits(0)}, {Bits(1), Bits(1)}, {0, 1}, parent.closed_values(frame, Bits(sector)));
@@ -544,17 +637,21 @@ void check_reference_boundary() {
     // a formerly contradictory dependent row when its RHS changes back.
     const std::vector<Bits> observed = {Bits(3), Bits(2), Bits(1), Bits(0), Bits(3)};
     auto coordinates = parent.coordinates(observed);
-    for(size_t sector = 0; sector < 2; sector++)
-        for(size_t outcomes = 0; outcomes < 32; outcomes++)
-            for(bool direct_closed : {false, true}) {
-                ReferenceHistoryBoundary committed(parent, Bits(sector));
+    for(bool direct_closed : {false, true}) {
+        ReferenceHistoryLayout layout(parent);
+        for(size_t j = 0; j < observed.size(); j++)
+            layout.append(coordinates[j], direct_closed ? &observed[j] : nullptr);
+        layout.finish();
+        for(size_t sector = 0; sector < 2; sector++)
+            for(size_t outcomes = 0; outcomes < 32; outcomes++) {
+                ReferenceHistoryBoundary committed(parent, Bits(sector), &layout);
                 std::vector<int> values;
                 Frame frame;
                 frame.x = Bits(3);
                 committed.synchronize(frame);
                 for(size_t j = 0; j < observed.size(); j++) {
                     values.push_back((outcomes >> j) & 1);
-                    committed.append(coordinates[j], values.back(), direct_closed ? &observed[j] : nullptr);
+                    committed.append(values.back());
                 }
                 for(size_t flip : {size_t(0), size_t(1), size_t(3), size_t(2), size_t(0), size_t(0), size_t(3)}) {
                     frame.x = Bits(flip);
@@ -574,10 +671,11 @@ void check_reference_boundary() {
                     }
                     auto updates = committed.rhs_updates;
                     committed.synchronize(frame);
-                    require(committed.rhs_updates == updates && committed.appended_rows == observed.size(),
+                    require(committed.rhs_updates == updates && committed.rhs.size() == observed.size(),
                             "unchanged assignment processes neither old observations nor RHS updates");
                 }
             }
+    }
     for(size_t sector = 0; sector < 2; sector++)
         for(size_t flip = 0; flip < 4; flip++) {
             Frame frame;
@@ -637,10 +735,8 @@ void check_incremental_history_session() {
         return a.boundary.keep == b.boundary.keep && a.boundary.events == b.boundary.events &&
                 a.boundary.outcomes == b.boundary.outcomes && a.boundary.offset == b.boundary.offset &&
                 a.boundary.zero == b.boundary.zero && a.actual_closed == b.actual_closed &&
-                a.previous_x == b.previous_x && a.closed_parts == b.closed_parts && a.pivots == b.pivots &&
-                a.open_slots == b.open_slots && a.rhs == b.rhs && a.closed_incidence == b.closed_incidence &&
-                a.physical_incidence == b.physical_incidence && a.contradictions == b.contradictions &&
-                a.appended_rows == b.appended_rows && a.rhs_updates == b.rhs_updates;
+                a.previous_x == b.previous_x && a.layout == b.layout && a.rhs == b.rhs &&
+                a.contradictions == b.contradictions && a.rhs_updates == b.rhs_updates;
     };
     auto support_words = [](const Ket& support) {
         std::vector<bool> out(size_t(1) << support.width);
@@ -687,15 +783,19 @@ void check_incremental_history_session() {
                 std::vector<Bits>{}, std::vector<int>{}, std::vector<Bits>{Bits(1)});
         SamplingNetworkPlan prepared(parent);
         require(bool(prepared.contraction) == !magic, "fixture exercises certified one-term and general history paths");
+        // The fixed layout holds every row this fixture observes; a session
+        // reaches them one at a time, with queries on each reached prefix.
+        ReferenceHistoryLayout layout(*parent);
+        for(auto row : {Bits(1), Bits(3), Bits(2)}) layout.append(parent->coordinates({row})[0], &row);
+        layout.finish();
         for(size_t sector = 0; sector < 2; sector++) {
-            SamplingNetworkSession current(prepared, plan, Bits(sector));
+            SamplingNetworkSession current(prepared, plan, Bits(sector), &layout);
             std::vector<Bits> observed;
             std::vector<int> outcomes;
             Frame frame;
             auto append = [&](Bits row, int bit) {
                 current.committed.synchronize(frame);
-                auto coordinates = parent->coordinates({row});
-                current.committed.append(coordinates[0], bit, &row);
+                current.committed.append(bit);
                 observed.push_back(std::move(row));
                 outcomes.push_back(bit);
             };
@@ -760,7 +860,7 @@ void check_incremental_history_session() {
             check({Bits(4), Bits(2)});
             frame = {};
             check({Bits(2), Bits(4)});
-            require(current.committed.appended_rows == observed.size(),
+            require(current.committed.rhs.size() == observed.size(),
                     "only newly committed observations enter the persistent boundary");
             if(!magic)
                 require(current.geometry_updates > 0,
@@ -863,6 +963,8 @@ int main() {
     check_reference_coordinates();
     check_packed_clifford_updates();
     check_quadratic_batches();
+    check_sparse_transpose();
+    check_event_factor_columns();
     check_composed_feedback_frames();
     check_reference_boundary();
     check_incremental_history_session();
