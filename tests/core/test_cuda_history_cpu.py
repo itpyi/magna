@@ -7,7 +7,7 @@ from magna import ControllerRegistry, _native, compile_circuit, parse_circuit
 from magna.scalar import ExactScalar
 
 
-def history(text, method='affine_support', ideal='I 0', outputs=(1,)):
+def history(text, ideal='I 0', outputs=(1,)):
     registry = ControllerRegistry()
     registry.register('copy', lambda bits, config: bits, version='1')
     compiled = compile_circuit(parse_circuit(text, controllers=registry),
@@ -82,7 +82,7 @@ class CudaHistoryCpuTests(unittest.TestCase):
                 'H 2\nM 2\nDETECTOR rec[-1]\n'
                 'CONTROL[copy] det[1] ctrl[0] -> ctrl[1] ctrl[2]\n'
                 'CX ctrl[1] 1\nCZ ctrl[2] 1')
-        compiled, handle, plan = history(text, 'affine_support')
+        compiled, handle, plan = history(text)
         self.assertEqual([site['input_count'] for site in plan['sites']], [1, 2])
         for shot in range(16):
             first = _native.cuda_history_replay(handle, 19, shot, (), ())
