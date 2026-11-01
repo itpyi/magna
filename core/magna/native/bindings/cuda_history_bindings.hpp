@@ -190,3 +190,51 @@ PyObject* cuda_history_support_reference(PyObject*, PyObject* args) {
         return Py_NewRef(out.p);
     } catch(...) { return execution_error(); }
 }
+
+inline ScientificMoments cuda_history_moments(PyObject* raw) {
+    Seq fields(raw);
+    if(fields.size() != 4) throw std::invalid_argument("CUDA history moments require four fields");
+    ScientificMoments result;
+    result.count = PyLong_AsSize_t(fields[0]);
+    if(PyErr_Occurred()) throw std::invalid_argument("invalid CUDA history count");
+    auto mean = cuda_read_bytes<double>(fields[1]), root = cuda_read_bytes<double>(fields[2]);
+    auto scales = cuda_read_bytes<int64_t>(fields[3]);
+    if(mean.size() != 2 || root.size() != 3 || scales.size() != 2)
+        throw std::invalid_argument("CUDA history moments shape mismatch");
+    std::copy(mean.begin(), mean.end(), result.mean.begin());
+    std::copy(root.begin(), root.end(), result.root.begin());
+    std::copy(scales.begin(), scales.end(), result.scales.begin());
+    return result;
+}
+PyObject* cuda_history_merge(PyObject*, PyObject* args) {
+    try {
+        Seq chunks(args);
+        ScientificMoments result;
+        for(size_t j = 0; j < chunks.size(); j++) result.merge(cuda_history_moments(chunks[j]));
+        Object mean(cuda_output_bytes(std::vector<double>(result.mean.begin(), result.mean.end()))),
+               root(cuda_output_bytes(std::vector<double>(result.root.begin(), result.root.end()))),
+               scales(cuda_output_bytes(std::vector<int64_t>(result.scales.begin(), result.scales.end())));
+        return Py_BuildValue("(nOOO)", Py_ssize_t(result.count), mean.p, root.p, scales.p);
+    } catch(...) { return execution_error(); }
+}
+PyObject* cuda_history_summary(PyObject*, PyObject* args) {
+    try {
+        PyObject* raw; int has_error;
+        if(!PyArg_ParseTuple(args, "Op", &raw, &has_error)) return nullptr;
+        auto summary = cuda_history_moments(raw).summary(has_error);
+        Object result(PyDict_New());
+        const char* sections[] = {"estimates", "standard_errors"};
+        const char* names[] = {"acceptance", "error", "conditional_error"};
+        const std::vector<RangedValue>* values[] = {&summary.estimates, &summary.standard_errors};
+        for(size_t j = 0; j < 2; j++) {
+            Object fields(PyDict_New());
+            for(size_t k = 0; k < 3; k++) {
+                const auto& value = values[j]->at(k);
+                if(value.overflow) throw std::invalid_argument("CUDA history summary exceeds float64 range");
+                phase_set(fields.p, names[k], output_ordinary(value.underflow ? std::optional<double>{0} : value.ordinary));
+            }
+            phase_set(result.p, sections[j], Py_NewRef(fields.p));
+        }
+        return Py_NewRef(result.p);
+    } catch(...) { return execution_error(); }
+}
