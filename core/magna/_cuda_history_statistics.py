@@ -75,7 +75,7 @@ class _HistoryStatistics:
         self.cp = cp
         self.module = None
 
-    def reduce(self, exact, *, norm_power=0, proposal_rank=None, likelihood=None):
+    def reduce(self, exact, *, proposal_rank, likelihood=None):
         cp = self.cp
         count, queries = exact.powers.shape
         if not count:
@@ -83,16 +83,14 @@ class _HistoryStatistics:
         if self.module is None:
             self.module = cp.RawModule(code=_read_cuda_source('history_statistics.cu'),
                                        options=('--std=c++11',))
-        ranks = proposal_rank if proposal_rank is not None else cp.empty(1, dtype=cp.int64)
         weights = likelihood if likelihood is not None else cp.empty(1, dtype=cp.float64)
         blocks = (count+127)//128
         partial = cp.empty((blocks, 8), dtype=cp.float64)
         continuation = cp.empty(count, dtype=cp.uint8)
         output = cp.empty(8, dtype=cp.float64)
         self.module.get_function('history_moments')((blocks,), (128,),
-            (exact.coefficients, exact.powers, exact.status, ranks, weights,
-             np.int32(proposal_rank is not None), np.int32(likelihood is not None),
-             np.uint64(count), np.int32(queries), np.int64(norm_power), partial, continuation))
+            (exact.coefficients, exact.powers, exact.status, proposal_rank, weights,
+             np.int32(likelihood is not None), np.uint64(count), np.int32(queries), partial, continuation))
         self.module.get_function('history_finish')((1,), (128,),
             (partial, np.uint64(blocks), output))
         host = output.get()

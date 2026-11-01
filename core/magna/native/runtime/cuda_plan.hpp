@@ -258,8 +258,6 @@ struct CudaQueryPlan {
     std::vector<uint8_t> step_tags;
     std::vector<CudaQueryPlan> components;
     std::vector<Scalar> weights;
-    std::shared_ptr<const CudaQueryPlan> shared_base;
-    size_t base_index = 0, disabled_caps = 0;
     CudaQueryPlan() : feature_index([](const auto& a, const auto& b) {
         if(a.first != b.first) return BitsLess{}(a.first, b.first);
         return a.second < b.second;
@@ -603,12 +601,11 @@ inline std::vector<CudaQueryPlan> build_cuda_queries(const CompiledExperiment& r
 }
 
 // CPU reference of exact_query in probability_queries.cu.
-inline Scalar cuda_query_cpu_value(const CudaQueryPlan& p, const uint64_t* frame, size_t disabled_caps = 0) {
+inline Scalar cuda_query_cpu_value(const CudaQueryPlan& p, const uint64_t* frame) {
     if(!p.mode) return {};
-    if(p.mode == 6) return cuda_query_cpu_value(*p.shared_base, frame, p.disabled_caps);
     if(p.mode == 5) {
         Scalar result;
-        for(size_t j = 0; j < p.components.size(); j++) result = result + cuda_query_cpu_value(p.components[j], frame, disabled_caps) * p.weights[j];
+        for(size_t j = 0; j < p.components.size(); j++) result = result + cuda_query_cpu_value(p.components[j], frame) * p.weights[j];
         return result;
     }
     auto f = cuda_query_feature_values(p, frame);
@@ -619,12 +616,6 @@ inline Scalar cuda_query_cpu_value(const CudaQueryPlan& p, const uint64_t* frame
     std::vector<int> l;
     std::vector<Bits> upper;
     int phase = cuda_query_actual(p, f, l, upper, p.mode != 2);
-    size_t active = p.n - disabled_caps;
-    int adjusted_power = p.power_sqrt2 + 2 * int(disabled_caps);
-    if(disabled_caps) {
-        l.resize(active); upper.resize(active);
-        for(auto& row : upper) row = row.low(active);
-    }
     Scalar value;
     if(p.mode == 3) {
         std::array<int64_t, 8> counts{};
@@ -632,8 +623,8 @@ inline Scalar cuda_query_cpu_value(const CudaQueryPlan& p, const uint64_t* frame
             counts[mod8(phase + 2 * qvalue(Bits(u), l, upper) + p.phase_table[u])]++;
         for(size_t k = 0; k < 8; k++) value = value + Scalar(counts[k]) * omega(int(k), p.power_sqrt2);
     } else if(p.mode == 1 || p.mode == 4) {
-        CliffordContraction contraction(std::vector<Bits>(active), Quadratic{0, l, upper});
-        auto ket = contraction.evaluate(0, {}, std::move(l), adjusted_power, phase);
+        CliffordContraction contraction(std::vector<Bits>(p.n), Quadratic{0, l, upper});
+        auto ket = contraction.evaluate(0, {}, std::move(l), p.power_sqrt2, phase);
         if(!ket.zero) value = omega(ket.phase, ket.power);
     } else {
         int power = p.power_sqrt2;

@@ -464,11 +464,11 @@ def cpu_run(sampler, shots, *, seed=0, offset=0, batch_size=65536):
     return _summarize_moments(_merge_moments(chunks), sampler._has_error)
 
 
-def history_scientific_rows(coefficients, powers, norm_power=0, proposal_rank=None, likelihood=None):
+def history_scientific_rows(coefficients, powers, proposal_rank, likelihood=None):
     """Arbitrary-precision oracle for history-normalized contributions."""
     from decimal import Decimal, localcontext
     c, p = np.asarray(coefficients), np.asarray(powers)
-    exponent_span = max([abs(int(norm_power)), *(abs(int(x)) for x in p.flat)], default=0)
+    exponent_span = max((abs(int(x)) for x in p.flat), default=0)
     rows = []
     with localcontext() as context:
         context.prec = max(100, int(exponent_span*.61)+100)
@@ -496,17 +496,14 @@ def history_scientific_rows(coefficients, powers, norm_power=0, proposal_rank=No
             mantissa, shift = math.frexp(float(normalized))
             return mantissa, exponent+shift
         for shot in range(len(c)):
-            history = scalar(c[shot, 0], p[shot, 0])
-            acceptance = scalar(c[shot, 1], p[shot, 1])
-            target = scalar(c[shot, 2], int(p[shot, 2])-norm_power) if c.shape[1] == 3 else Decimal(0)
-            if not 0 <= target <= acceptance <= history:
+            acceptance = scalar(c[shot, 0], p[shot, 0])
+            target = scalar(c[shot, 1], p[shot, 1]) if c.shape[1] == 2 else Decimal(0)
+            if not 0 <= target <= acceptance:
                 raise ValueError('invalid history masses')
-            divisor = history if proposal_rank is None else two**(-int(proposal_rank[shot]))
-            if divisor == 0:
-                raise ValueError('zero conditional history mass')
+            divisor = two**(-int(proposal_rank[shot]))
             weight = Decimal.from_float(float(likelihood[shot])) if likelihood is not None else Decimal(1)
             rows.append((scientific(acceptance*weight/divisor),
-                         scientific((acceptance-target)*weight/divisor) if c.shape[1] == 3 else (0., 0)))
+                         scientific((acceptance-target)*weight/divisor) if c.shape[1] == 2 else (0., 0)))
     return rows
 
 

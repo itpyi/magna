@@ -8,10 +8,6 @@ struct CudaQueriesBinding {
 };
 
 inline PyObject* cuda_query_plan_output(const CudaQueryPlan& p) {
-    if(p.mode == 6)
-        return Py_BuildValue("{s:i,s:n,s:n,s:n,s:n}", "mode", 6, "n", Py_ssize_t(p.n),
-                "frame_words", Py_ssize_t(p.frame_words), "base_index", Py_ssize_t(p.base_index),
-                "disabled_caps", Py_ssize_t(p.disabled_caps));
     Object out(Py_BuildValue("{s:n,s:n,s:i,s:i,s:i,s:i,s:n,s:n}", "n", Py_ssize_t(p.n),
             "frame_words", Py_ssize_t(p.frame_words), "mode", p.mode, "constant", p.constant,
             "power_sqrt2", p.power_sqrt2, "output_power", p.output_power,

@@ -62,9 +62,8 @@ class GpuQueries:
     minus target_success. Nonzero device ``status`` must be checked before
     accepting results; the sampler's statistics kernel checks it.
     """
-    def __init__(self, experiment, plans=None, *, real_output=True, shared=()):
+    def __init__(self, experiment, plans=None, *, real_output=True):
         self.experiment = experiment
-        self._shared = shared
         if plans is None:
             experiment.validate()
             self.handle, self.metadata = _native.make_cuda_queries(experiment.handle)
@@ -77,12 +76,10 @@ class GpuQueries:
         self._real_output = real_output
         self._sum_kernel = None
         for raw in self.metadata:
-            if raw['mode'] == 6:
-                host = {}
-            elif raw['mode'] == 5:
+            if raw['mode'] == 5:
                 weights, powers = zip(*raw['weights'])
                 fits = all(-(1 << 63) < x < (1 << 63) for row in weights for x in row)
-                host = dict(components=GpuQueries(experiment, raw['components'], real_output=False, shared=shared),
+                host = dict(components=GpuQueries(experiment, raw['components'], real_output=False),
                     weights=np.asarray(weights, dtype=np.int64) if fits else None,
                     weight_powers=np.asarray(powers, dtype=np.int64))
             else:
@@ -96,9 +93,6 @@ class GpuQueries:
             import cupy as cp
             plans = []
             for raw, host in self._host_plans:
-                if raw['mode'] == 6:
-                    plans.append((raw, {}, None, None))
-                    continue
                 if raw['mode'] == 5:
                     arrays = dict(components=host['components'],
                         weights=None if host['weights'] is None else cp.asarray(host['weights']),
@@ -129,7 +123,7 @@ class GpuQueries:
             self._cp = cp
         return self._cp
 
-    def evaluate(self, device_frames, *, inactive_caps=0):
+    def evaluate(self, device_frames):
         """Evaluate every query on device frames from ``FusedCudaNoise``."""
         cp = self.cp
         shots = device_frames.shape[0]
@@ -138,20 +132,13 @@ class GpuQueries:
         status = cp.empty((shots, self.query_count), dtype=cp.int32)
         if shots:
             for query, (raw, arrays, feature_kernel, kernel) in enumerate(self._plans):
-                if raw['mode'] == 6:
-                    values = self._shared[raw['base_index']].evaluate(device_frames,
-                        inactive_caps=inactive_caps+raw['disabled_caps'])
-                    coefficients[:, query] = values.coefficients[:, 0]
-                    powers[:, query] = values.powers[:, 0]
-                    status[:, query] = values.status[:, 0]
-                    continue
                 if raw['mode'] == 5:
                     if arrays['weights'] is None:
                         coefficients[:, query].fill(0)
                         powers[:, query].fill(0)
                         status[:, query].fill(1)
                         continue
-                    values = arrays['components'].evaluate(device_frames, inactive_caps=inactive_caps)
+                    values = arrays['components'].evaluate(device_frames)
                     self._sum_kernel(((shots+127)//128,), (128,),
                         (values.coefficients, values.powers, values.status,
                          arrays['weights'], arrays['weight_powers'], coefficients, powers, status,
@@ -177,7 +164,7 @@ class GpuQueries:
                         arrays['linear'], arrays['upper'], arrays['linear_shift'],
                         arrays['constant_linear'], arrays['constant_pairs'], arrays['magic'], arrays['magic_masks'],
                         coefficients, powers, status, np.uint64(shots), np.int32(self.query_count),
-                        np.int32(query), np.int32(raw['n']-inactive_caps), scratch))
+                        np.int32(query), scratch))
                 else:
                     kernel(((shots + 127) // 128,), (128,), arguments)
         return ExactQueryResult(coefficients, powers, status)

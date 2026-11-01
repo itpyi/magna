@@ -74,15 +74,10 @@ inline PyObject* cuda_history_plan_output(const CudaHistoryPlan& p, const CudaEx
         phase_set(value.p, "outcomes", cuda_history_affines(site.outcomes, words));
         phase_set(value.p, "outputs", cuda_output_bytes(site.outputs));
         phase_set(value.p, "columns", cuda_output_bytes(site.columns));
-        phase_set(value.p, "prefixes", cuda_history_query_list(site.prefixes));
         PyTuple_SET_ITEM(sites.p, j, Py_NewRef(value.p));
     }
     phase_set(result.p, "sites", Py_NewRef(sites.p));
     phase_set(result.p, "terminal", cuda_history_query_list(p.terminal));
-    Object bases(PyTuple_New(p.query_bases.size()));
-    for(size_t j = 0; j < p.query_bases.size(); j++)
-        PyTuple_SET_ITEM(bases.p, j, cuda_query_plan_output(*p.query_bases[j]));
-    phase_set(result.p, "query_bases", Py_NewRef(bases.p));
     return Py_NewRef(result.p);
 }
 PyObject* make_cuda_history(PyObject*, PyObject* cap) {
@@ -96,6 +91,7 @@ PyObject* make_cuda_history(PyObject*, PyObject* cap) {
         owner->experiment = bridge->plan;
         native_work([&]() { owner->plan = build_cuda_history(*owner->run, *owner->experiment); return 0; });
         Object metadata(cuda_history_plan_output(owner->plan, *owner->experiment));
+        phase_set(metadata.p, "proposal", PyBool_FromLong(owner->run->proposal));
         Object handle(PyCapsule_New(owner.get(), "magna-cuda-history-v1", cuda_history_destructor));
         owner.release();
         return PyTuple_Pack(2, handle.p, metadata.p);
@@ -192,24 +188,5 @@ PyObject* cuda_history_support_reference(PyObject*, PyObject* args) {
         phase_set(out.p, "base", cuda_history_rows({result.base}, words));
         phase_set(out.p, "columns", cuda_history_rows(result.columns, words));
         return Py_NewRef(out.p);
-    } catch(...) { return execution_error(); }
-}
-PyObject* cuda_history_prefix_cpu_evaluate(PyObject*, PyObject* args) {
-    try {
-        PyObject *cap, *raw;
-        Py_ssize_t site, prefix;
-        if(!PyArg_ParseTuple(args, "OnnO", &cap, &site, &prefix, &raw)) return nullptr;
-        auto* owner = cuda_history_handle(cap);
-        if(!owner) return nullptr;
-        auto frame = cuda_read_bytes<uint64_t>(raw);
-        if(site < 0 || size_t(site) >= owner->plan.sites.size() || prefix < 0 ||
-                size_t(prefix) >= owner->plan.sites[size_t(site)].prefixes.size() || frame.size() != owner->plan.mother.frame_words)
-            throw std::invalid_argument("CUDA history prefix shape mismatch");
-        CompiledExperiment::ExclusiveUse use(*owner->run);
-        cuda_check_current(*owner->run, *owner->experiment);
-        auto result = native_work([&]() {
-            return cuda_query_cpu_value(owner->plan.sites[size_t(site)].prefixes[size_t(prefix)], frame.data());
-        });
-        return output_scalar(result);
     } catch(...) { return execution_error(); }
 }

@@ -46,7 +46,6 @@ struct CudaHistorySite {
     std::vector<Bits> pending, labels;
     std::vector<uint32_t> observed, input_for_pending, outputs;
     std::vector<uint64_t> columns;
-    std::vector<CudaQueryPlan> prefixes;
 };
 struct CudaHistoryEntry {
     Bits shift, base;
@@ -65,7 +64,6 @@ struct CudaHistoryPlan {
     std::vector<Bits> sector_columns;
     CudaQueryPlan mother;
     std::vector<CudaHistoryEntry> entries;
-    std::vector<std::shared_ptr<const CudaQueryPlan>> query_bases;
     std::vector<CudaQueryPlan> terminal;
 };
 
@@ -92,6 +90,8 @@ struct CudaHistoryKnowledge {
 
 inline CudaHistoryPlan build_cuda_history(CompiledExperiment& run, const CudaExperimentPlan& experiment) {
     if(!run.history) throw std::invalid_argument("CUDA history plan requires a live decoder");
+    if(!run.proposal)
+        throw std::invalid_argument("CUDA decoder tasks require affine_support; use magna.run for exact_marginal");
     CudaHistoryPlan out;
     const auto& parent = *run.history->parent;
     const auto& network = *parent.reference;
@@ -110,7 +110,7 @@ inline CudaHistoryPlan build_cuda_history(CompiledExperiment& run, const CudaExp
         std::frexp(value, &exponent);
         largest_likelihood = std::max(largest_likelihood, exponent);
     }
-    size_t rank_bound = run.proposal ? out.open_bits + out.sector_rank : 0;
+    size_t rank_bound = out.open_bits + out.sector_rank;
     if(rank_bound + size_t(std::max(0, largest_likelihood)) >= 1020)
         throw std::invalid_argument("CUDA history result-range bound exceeds finite float64 output");
     size_t control_offset = 0;
@@ -277,31 +277,11 @@ inline CudaHistoryPlan build_cuda_history(CompiledExperiment& run, const CudaExp
         }
     }
     if(out.entries.empty()) throw std::invalid_argument("CUDA sampling parent has no prepared affine entries");
-    // Every prefix owns only its active-cap count. The full matrix, features
-    // and magic masks are shared once, including for a large exact sampler.
-    auto forms = run.history->contraction ? transpose(run.history->contraction->columns, out.open_bits)
-                                         : network.maps->restricted_forms;
-    std::vector<Bits> equations;
-    std::vector<CudaQueryAffine> cap_values;
-    auto prefix = [&](size_t active) {
-        CudaQueryPlan result;
-        result.mode = 6; result.frame_words = out.mother.frame_words;
-        result.disabled_caps = active; // Converted to the inactive suffix below.
-        return result;
-    };
     CudaHistoryKnowledge committed;
     std::vector<CudaQueryAffine> contradictions;
     for(auto& site : out.sites) {
-        if(!run.proposal && !site.pending.empty()) site.prefixes.push_back(prefix(equations.size()));
         for(size_t j = 0; j < site.pending.size(); j++) {
             auto value = auxiliary(out.sector_bits + site.observation_first + j);
-            if(site.labels[j].size() > out.sector_bits) {
-                auto open = site.labels[j] >> out.sector_bits;
-                equations.push_back(xors(forms, open));
-                cap_values.push_back(cuda_query_xor(value, cuda_query_xor(
-                        cuda_affine_sum(out.closed, site.labels[j].low(out.sector_bits)), cuda_affine_sum(out.open_base, open))));
-                if(!run.proposal) site.prefixes.push_back(prefix(equations.size()));
-            } else if(!run.proposal) site.prefixes.emplace_back();
             auto row = site.labels[j] >> out.sector_bits;
             auto rhs = cuda_query_xor(value, cuda_affine_sum(out.closed, site.labels[j].low(out.sector_bits)));
             if(!row.empty()) {
@@ -311,24 +291,6 @@ inline CudaHistoryPlan build_cuda_history(CompiledExperiment& run, const CudaExp
             }
         }
     }
-    auto base = run.history->contraction ? out.mother : cuda_query_entries(out.mother, resource);
-    auto cap = [&](CudaQueryPlan query) {
-        auto result = cuda_query_cap(query, equations, cap_values);
-        if(!equations.empty()) result.mode = 4;
-        return result;
-    };
-    if(base.mode == 5) for(auto& component : base.components) component = cap(std::move(component));
-    else base = cap(std::move(base));
-    base = cuda_query_scale(std::move(base), run.target_normalization);
-    out.query_bases.push_back(std::make_shared<const CudaQueryPlan>(std::move(base)));
-    auto bind_prefix = [&](CudaQueryPlan& query) {
-        if(query.mode != 6) return;
-        query.shared_base = out.query_bases[0]; query.n = query.shared_base->n;
-        query.disabled_caps = equations.size() - query.disabled_caps;
-    };
-    for(auto& site : out.sites) for(auto& query : site.prefixes) bind_prefix(query);
-    out.terminal.push_back(prefix(equations.size()));
-    bind_prefix(out.terminal.back());
     auto terminal = [&](const FileBoundary& engine, const char* purpose, bool target) {
         const auto& terminal_parent = *engine.reference_networks.at(purpose);
         std::vector<CudaQueryAffine> caps;
@@ -349,7 +311,8 @@ inline CudaHistoryPlan build_cuda_history(CompiledExperiment& run, const CudaExp
     };
     out.terminal.push_back(terminal(*experiment.engine, "acceptance", false));
     if(experiment.target) out.terminal.push_back(terminal(*experiment.target, "fidelity", true));
-    out.terminal[1] = cuda_query_scale(std::move(out.terminal[1]), run.target_normalization);
+    // Match the CPU contribution acceptance * target_normalization.
+    out.terminal[0] = cuda_query_scale(std::move(out.terminal[0]), run.target_normalization);
     return out;
 }
 
@@ -399,24 +362,6 @@ inline Ket cuda_history_support(const CudaHistoryPlan& plan, size_t site_index, 
     return cuda_history_canonical(std::move(envelope.support));
 }
 
-// Unbounded exact Bernoulli continuation uses the same addressed Philox bits
-// as the device prefix, including after the device comparison is inconclusive.
-inline bool cuda_history_bernoulli(const Scalar& numerator, const Scalar& denominator, CudaPhilox& rng) {
-    const Scalar minus(-1);
-    if(real_sign(denominator) <= 0 || real_sign(numerator) < 0 || real_sign(denominator + numerator * minus) < 0)
-        throw std::invalid_argument("invalid CUDA history marginal");
-    if(numerator.zero()) return false;
-    if((denominator + numerator * minus).zero()) return true;
-    Integer prefix;
-    for(size_t depth = 1;; depth++) {
-        prefix = prefix.shift(1) + Integer(int64_t(rng() & 1));
-        auto lower = file_integer_scalar(prefix), upper = file_integer_scalar(prefix + Integer(1));
-        lower.power -= int64_t(depth);
-        upper.power -= int64_t(depth);
-        if(real_sign(numerator + denominator * upper * minus) >= 0) return true;
-        if(real_sign(numerator + denominator * lower * minus) <= 0) return false;
-    }
-}
 struct CudaHistoryReplay {
     CompiledExperiment& run;
     const CudaExperimentPlan& experiment;
@@ -468,7 +413,7 @@ struct CudaHistoryReplay {
         Bits word;
         ReferenceRows labels{site.labels};
         auto support = cuda_history_canonical(session->support_committed(frame, labels));
-        if(run.proposal && !support.zero) proposal_rank += support.columns.size();
+        if(!support.zero) proposal_rank += support.columns.size();
         if(supplied) {
             if(supplied->size() != site.inputs.size()) throw std::invalid_argument("CUDA replay input width mismatch");
             for(size_t j = 0; j < site.pending.size(); j++) {
@@ -480,29 +425,14 @@ struct CudaHistoryReplay {
             CudaPhilox rng(shot, cuda_history_seed(seed, index + 2));
             const auto& request = (site.stage == "protocol" ? run.observation.protocol : run.observation.recovery).at(site.index);
             if(request.affine) word = affine_word(request, sector, frame);
-            else if(run.proposal) {
+            else {
                 if(!support.zero) {
                     word = support.base;
                     for(const auto& column : support.columns) if(rng() & 1) word ^= column;
                 }
-            } else {
-                auto marginal = session->query_committed(frame, labels);
-                Workspace ws;
-                auto mass = boundary_sum(marginal.terms, {}, {}, ws);
-                if(real_sign(mass) > 0) {
-                    std::vector<Bits> events;
-                    std::vector<int> values;
-                    for(size_t j = 0; j < site.pending.size(); j++) {
-                        events.push_back(Bits::unit(j)); values.push_back(0);
-                        auto zero = boundary_sum(marginal.terms, events, values, ws);
-                        int bit = !cuda_history_bernoulli(zero, mass, rng);
-                        mass = bit ? mass + zero * Scalar(-1) : zero;
-                        values.back() = bit;
-                        if(bit) word.set(j);
-                    }
-                }
             }
         }
+
         for(size_t j = 0; j < site.pending.size(); j++) {
             auto bit = 128 * experiment.words + plan.sector_bits + site.observation_first + j;
             auto mask = uint64_t(1) << (bit % 64);
@@ -537,7 +467,7 @@ struct CudaHistoryReplay {
     HistoryResult finish() {
         result.masses = run.evaluate(result.noise, {}, {}, {}, known.values, sector, session.get(),
                 &known.rows, &known_coordinates, &frame);
-        if(run.proposal) result.proposal_denominator = Integer(1).shift(proposal_rank);
+        result.proposal_denominator = Integer(1).shift(proposal_rank);
         return std::move(result);
     }
 };

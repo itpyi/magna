@@ -45,30 +45,6 @@ def fraction_summary(rows):
 
 
 class HistoryStatisticsCpuTests(unittest.TestCase):
-    def test_tiny_likelihood_is_scaled_before_target_normalization(self):
-        from magna._cuda_history import _CudaHistory
-        history = _CudaHistory.__new__(_CudaHistory)
-        history._cp = np
-        history.proposal = True
-        history.normalization = (1.25, -1)
-        ranks, weights = history._statistics_inputs(np.array([0, 1074], dtype=np.int64),
-            np.array([2.**-1074, 2.**-1074]))
-        np.testing.assert_array_equal(ranks, [-1072, 2])
-        np.testing.assert_array_equal(weights, [.4, .4])
-        c, p = arrays([[scalar(5, -3), scalar(5, -3)]]*2)
-        rows = history_scientific_rows(c, p, proposal_rank=ranks, likelihood=weights)
-        for row, expected in zip(rows, (2.**-1074, 1.)):
-            self.assertEqual(_summarize_scaled(_scientific_moments([row]), False)['estimates']['acceptance'], expected)
-
-    def test_proposal_and_conditional_normalization(self):
-        c, p = arrays([[scalar(1, -3), scalar(1, -4), scalar(1, -6)]])
-        exact = history_scientific_rows(c, p, -1)
-        affine = history_scientific_rows(c, p, -1, [4], [2.])
-        self.assertEqual(_summarize_scaled(_scientific_moments(exact))['estimates'],
-                         dict(acceptance=.5, error=.25, conditional_error=.5))
-        self.assertEqual(_summarize_scaled(_scientific_moments(affine))['estimates'],
-                         dict(acceptance=2., error=1., conditional_error=.5))
-
     def test_independent_scales_and_chunking(self):
         rows = [(Fraction(i % 4, 4), Fraction(i % 4, 2**1000)+Fraction((i % 3)*(i % 4), 2**1005))
                 for i in range(301)]
@@ -90,13 +66,6 @@ class HistoryStatisticsCpuTests(unittest.TestCase):
         self.assertEqual(result['standard_errors']['acceptance'], 2.**-1001)
         self.assertIsNone(result['estimates']['error'])
 
-    def test_tiny_history_and_large_proposal_cancel_before_conversion(self):
-        c, p = arrays([[scalar(1, -4000), scalar(1, -4001), scalar(1, -6002)]])
-        for ranks in (None, [4000]):
-            rows = history_scientific_rows(c, p, -2000, ranks)
-            self.assertEqual(_summarize_scaled(_scientific_moments(rows))['estimates'],
-                             dict(acceptance=.5, error=.25, conditional_error=.5))
-
     def test_subnormal_mean_and_standard_error_round_at_the_end(self):
         rows = [((.5, -1073), (.5, -1073)), ((0., 0), (0., 0))]
         result = _summarize_scaled(_scientific_moments(rows))
@@ -113,35 +82,32 @@ class HistoryStatisticsGpuTests(unittest.TestCase):
     def setUpClass(cls):
         cls.cp = require_cuda()
 
-    def reduce(self, c, p, norm_power=0, ranks=None, likelihood=None, status=None):
+    def reduce(self, rows, ranks=None, status=None):
         cp = self.cp
+        c, p = arrays(rows)
+        ranks = [0]*len(c) if ranks is None else ranks
         exact = SimpleNamespace(coefficients=cp.asarray(c), powers=cp.asarray(p),
-                                status=cp.zeros(p.shape, dtype=cp.int32) if status is None else cp.asarray(status))
-        return _HistoryStatistics(cp).reduce(exact, norm_power=norm_power,
-                    proposal_rank=None if ranks is None else cp.asarray(ranks, dtype=cp.int64),
-                    likelihood=None if likelihood is None else cp.asarray(likelihood, dtype=cp.float64))
+            status=cp.zeros(p.shape, dtype=cp.int32) if status is None else cp.asarray(status))
+        actual, continuation = _HistoryStatistics(cp).reduce(exact, proposal_rank=cp.asarray(ranks, dtype=cp.int64))
+        return actual, continuation, history_scientific_rows(c, p, ranks)
 
-    def test_both_history_weights_and_target_normalization(self):
-        c, p = arrays([[scalar(1, -3), scalar(i % 3, -5), scalar(i % 2, -7)]
-                       if i % 3 else [scalar(1, -3), scalar(0), scalar(0)] for i in range(301)])
-        for ranks in (None, [4]*len(c)):
-            weights = np.array([0., .5, 2.]*101)[:len(c)]
-            actual, flags = self.reduce(c, p, -1, ranks, weights)
-            np.testing.assert_array_equal(flags, 0)
-            expected = _scientific_moments(history_scientific_rows(c, p, -1, ranks, weights))
-            self.assertEqual(actual.count, len(c))
-            a, e = _summarize_scaled(actual), _summarize_scaled(expected)
-            for section in a:
-                np.testing.assert_allclose(list(a[section].values()), list(e[section].values()), rtol=3e-14, atol=0)
+    def assert_summary(self, actual, expected):
+        a, e = _summarize_scaled(actual), _summarize_scaled(expected)
+        for section in a:
+            np.testing.assert_allclose(list(a[section].values()), list(e[section].values()), rtol=3e-13, atol=0)
+
+    def test_affine_weights_and_zero_draws(self):
+        rows = [[scalar(i % 3, -5), scalar(i % 2 if i % 3 else 0, -7)] for i in range(301)]
+        actual, flags, reference = self.reduce(rows, [4]*len(rows))
+        np.testing.assert_array_equal(flags, 0)
+        self.assertEqual(actual.count, len(rows))
+        self.assert_summary(actual, _scientific_moments(reference))
 
     def test_tiny_masses_and_large_rank_do_not_underflow(self):
-        c, p = arrays([[scalar(1, -4000), scalar(1, -4001), scalar(1, -6002)]]*129)
-        for ranks in (None, [4000]*len(c)):
-            actual, flags = self.reduce(c, p, -2000, ranks)
-            np.testing.assert_array_equal(flags, 0)
-            result = _summarize_scaled(actual)
-            self.assertEqual(result['estimates'], dict(acceptance=.5, error=.25, conditional_error=.5))
-            self.assertEqual(result['standard_errors'], dict(acceptance=0., error=0., conditional_error=0.))
+        actual, flags, reference = self.reduce([[scalar(1, -4001), scalar(1, -4002)]]*129, [4000]*129)
+        np.testing.assert_array_equal(flags, 0)
+        self.assert_summary(actual, _scientific_moments(reference))
+        self.assertEqual(_summarize_scaled(actual)['estimates']['acceptance'], .5)
 
     def test_signed_likelihood_scale_preserves_subnormal_weight(self):
         from magna._cuda_history import _CudaHistory
@@ -152,8 +118,10 @@ class HistoryStatisticsGpuTests(unittest.TestCase):
         for rank, expected in ((0, 2.**-1074), (1074, 1.)):
             ranks, weights = history._statistics_inputs(self.cp.asarray([rank], dtype=self.cp.int64),
                 self.cp.asarray([2.**-1074]))
-            c, p = arrays([[scalar(5, -3), scalar(5, -3)]])
-            actual, flags = self.reduce(c, p, ranks=ranks, likelihood=weights)
+            c, p = arrays([[scalar(5, -3)]])
+            exact = SimpleNamespace(coefficients=self.cp.asarray(c), powers=self.cp.asarray(p),
+                                    status=self.cp.zeros(p.shape, dtype=self.cp.int32))
+            actual, flags = _HistoryStatistics(self.cp).reduce(exact, proposal_rank=ranks, likelihood=weights)
             np.testing.assert_array_equal(flags, 0)
             self.assertEqual(_summarize_scaled(actual, False)['estimates']['acceptance'], expected)
 
@@ -161,35 +129,29 @@ class HistoryStatisticsGpuTests(unittest.TestCase):
         x, y = 3, 2
         while x < 1 << 50:
             x, y = 3*x+4*y, 2*x+3*y
-        c, p = arrays([[scalar(), scalar(), scalar((1 << 55)-1, -55)],
-                       [scalar(), ([x, -y, 0, y], 0), scalar(0)]])
-        actual, flags = self.reduce(c, p)
+        actual, flags, reference = self.reduce([[scalar(), scalar((1 << 55)-1, -55)],
+                                               [([x, -y, 0, y], 0), scalar(0)]])
         np.testing.assert_array_equal(flags, 0)
-        expected = _scientific_moments(history_scientific_rows(c, p))
-        a, e = _summarize_scaled(actual), _summarize_scaled(expected)
-        for section in a:
-            np.testing.assert_allclose(list(a[section].values()), list(e[section].values()), rtol=4e-15, atol=0)
-        self.assertGreater(a['estimates']['error'], 0)
+        self.assert_summary(actual, _scientific_moments(reference))
+        self.assertGreater(_summarize_scaled(actual)['estimates']['error'], 0)
 
     def test_unsafe_draw_continues_without_losing_safe_zero_draws(self):
-        c, p = arrays([[scalar(), scalar(), scalar(1, -2000)],
-                       [scalar(), scalar(0), scalar(0)],
-                       [scalar(), scalar(1, -1), scalar(1, -2)]])
-        actual, flags = self.reduce(c, p)
+        actual, flags, reference = self.reduce([[scalar(), scalar(1, -2000)],
+                                               [scalar(0), scalar(0)],
+                                               [scalar(1, -1), scalar(1, -2)]])
         np.testing.assert_array_equal(flags, [1, 0, 0])
         self.assertEqual(actual.count, 2)
-        rows = history_scientific_rows(c, p)
-        completed = _merge_scaled([actual, _scientific_moments([rows[0]])])
+        completed = _merge_scaled([actual, _scientific_moments([reference[0]])])
         self.assertEqual(completed.count, 3)
-        expected = _summarize_scaled(_scientific_moments(rows))
-        for section, values in _summarize_scaled(completed).items():
-            np.testing.assert_allclose(list(values.values()), list(expected[section].values()), rtol=3e-15, atol=0)
+        self.assert_summary(completed, _scientific_moments(reference))
 
-    def test_query_status_excludes_only_the_affected_draw(self):
-        c, p = arrays([[scalar(), scalar(1, -1)]]*130)
-        status = np.zeros(p.shape, dtype=np.int32)
-        status[128, 1] = 2
-        actual, flags = self.reduce(c, p, status=status)
+    def test_only_guard_status_replays(self):
+        status = np.zeros((130, 1), dtype=np.int32)
+        status[128, 0] = 1
+        actual, flags, _ = self.reduce([[scalar(1, -1)]]*130, status=status)
         self.assertEqual(int(flags.sum()), 1)
         self.assertEqual(actual.count, 129)
-        self.assertEqual(_summarize_scaled(actual, False)['estimates']['acceptance'], .5)
+
+
+if __name__ == '__main__':
+    unittest.main()

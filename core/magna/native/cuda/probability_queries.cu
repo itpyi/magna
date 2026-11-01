@@ -216,7 +216,7 @@ extern "C" __global__ void exact_query_large(
     const unsigned int* linear_shift, const int* constant_linear, const int* constant_pairs,
     const int* magic, const unsigned long long* magic_masks,
     long long* coefficients, int* powers, int* status,
-    unsigned long long shots, int queries, int query, int active_n, unsigned long long* scratch) {
+    unsigned long long shots, int queries, int query, unsigned long long* scratch) {
     typedef unsigned long long u64;
     __shared__ int linear[N ? N : 1], phase, power, h, p, lh, lp, zero;
     __shared__ u64 active[WORDS ? WORDS : 1];
@@ -225,7 +225,7 @@ extern "C" __global__ void exact_query_large(
     for(u64 shot=blockIdx.x;shot<shots;shot+=gridDim.x) {
         u64 output=shot*queries+query;
         if(!tid) {
-            zero=0;phase=CONSTANT;power=POWER+2*(N-active_n);
+            zero=0;phase=CONSTANT;power=POWER;
             for(int k=0;k<4;++k)coefficients[4*output+k]=0;
             powers[output]=0;status[output]=0;
 #if (FRAME_BITS % 64) != 0 || FRAME_BITS == 0
@@ -251,10 +251,10 @@ extern "C" __global__ void exact_query_large(
         __syncthreads();
         if(zero) {__syncthreads();continue;}
         for(int w=tid;w<WORDS;w+=blockDim.x) {
-            int remaining=active_n-64*w;
+            int remaining=N-64*w;
             active[w]=remaining<=0?0ULL:remaining>=64?~0ULL:((1ULL<<remaining)-1);
         }
-        for(int j=tid;j<active_n;j+=blockDim.x) {
+        for(int j=tid;j<N;j+=blockDim.x) {
             int value=(initial_linear[j]+2*F(linear_shift[j]))&3;
             for(int w=0;w<WORDS;++w)adj[(u64)j*WORDS+w]=initial_upper[(u64)j*WORDS+w];
             for(int k=0;k<MAGIC;++k) {
@@ -293,7 +293,7 @@ extern "C" __global__ void exact_query_large(
             }
             __syncthreads();
             if(h<0 || zero)break;
-            for(int j=tid;j<active_n;j+=blockDim.x) {
+            for(int j=tid;j<N;j+=blockDim.x) {
                 if(!((active[j/64]>>(j%64))&1))continue;
                 int sj=(adj[(u64)h*WORDS+j/64]>>(j%64))&1;
                 if(lh&1) {

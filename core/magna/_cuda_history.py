@@ -11,7 +11,7 @@ class _CudaHistory:
     def __init__(self, experiment):
         self.experiment = experiment
         self.handle, self.metadata = _native.make_cuda_history(experiment.handle)
-        self.proposal = experiment.compiled.options['history_sampler'] == 'affine_support'
+        self.proposal = self.metadata['proposal']
         self.stride = self.metadata['frame_words']
         self.pauli_words = 2*experiment.words
         self.sites = self.metadata['sites']
@@ -20,18 +20,13 @@ class _CudaHistory:
             controls = (experiment.compiled._control_metadata if site['stage'] == 'protocol'
                         else experiment.compiled._recovery_control_metadata)
             self.bindings.append(controls.callbacks[site['index']][:2])
-        self.query_bases = [GpuQueries(experiment, [raw]) for raw in self.metadata.get('query_bases', ())]
-        self.terminal = GpuQueries(experiment, self.metadata['terminal'], shared=self.query_bases)
-        self.prefixes = []
+        self.terminal = GpuQueries(experiment, self.metadata['terminal'])
         self.closed = []
         words = (self.metadata['open_bits']+63)//64
         for site in self.sites:
             keep = np.frombuffer(site['keep'], dtype='<u8').reshape(site['pending_count'], words)
             closed = ~np.any(keep, axis=1)
             self.closed.append(closed)
-            self.prefixes.append([GpuQueries(experiment, [raw], shared=self.query_bases)
-                if j == 0 or not closed[j-1] else None
-                for j, raw in enumerate(site['prefixes'])] if not np.all(closed) else [])
         mantissa, exponent = self.metadata['normalization']
         self.normalization = (2*mantissa, exponent-1)
         self._cp = None
@@ -134,28 +129,7 @@ class _CudaHistory:
              *map(np.int32, (index, self.stride, self.pauli_words, self.metadata['sector_bits'],
                             site['observation_first'], pending))))
 
-    def _exact_site(self, frames, index, seed, offset):
-        cp = self._cp
-        site, arrays = self.sites[index], self.device_sites[index]
-        shots = frames.shape[0]
-        continuation = cp.zeros(shots, dtype=cp.uint8)
-        random = cp.zeros((shots, 3), dtype=cp.uint64)
-        current = self.prefixes[index][0].evaluate(frames)
-        for j, closed in enumerate(self.closed[index]):
-            if closed:
-                continue
-            zero = self.prefixes[index][j+1].evaluate(frames)
-            self.control.get_function('history_choose')(((shots+127)//128,), (128,),
-                (frames, current.coefficients, current.powers, current.status,
-                 zero.coefficients, zero.powers, zero.status, random, continuation,
-                 np.uint64(shots), np.uint64(seed), np.uint64(offset),
-                 *map(np.int32, (index, self.stride, self.pauli_words,
-                                self.metadata['sector_bits']+site['observation_first']+j))))
-        return continuation
-
     def _statistics_inputs(self, ranks, weights):
-        if not self.proposal:
-            return None, weights
         mantissa, exponent = self.normalization
         if weights is not None:
             weights, powers = self._cp.frexp(weights)
@@ -173,7 +147,7 @@ class _CudaHistory:
         else:
             original = noise.sample(shots, seed, offset=offset)
         frames = cp.empty((shots, self.stride), dtype=cp.uint64)
-        ranks = cp.empty(shots if self.proposal else 1, dtype=cp.int64)
+        ranks = cp.empty(shots, dtype=cp.int64)
         self.control.get_function('initialize_history')(((shots+127)//128,), (128,),
             (original, self.sector_base, self.sector_columns, frames, ranks,
              np.uint64(shots), np.uint64(seed), np.uint64(offset),
@@ -181,7 +155,6 @@ class _CudaHistory:
                             self.metadata['sector_rank'], self.proposal))))
         previous_inputs, previous_outputs = [], []
         for index, (site, arrays, binding) in enumerate(zip(self.sites, self.device_sites, self.bindings)):
-            continuation = None
             pending = site['pending_count']
             if pending:
                 self.control.get_function('history_closed')(((shots+127)//128,), (128,),
@@ -189,21 +162,8 @@ class _CudaHistory:
                      *map(np.int32, (self.stride, self.pauli_words, self.metadata['sector_bits'],
                                     site['observation_first'], pending))))
                 if not np.all(self.closed[index]):
-                    if self.proposal:
-                        self._affine_site(frames, ranks, index, seed, offset)
-                    else:
-                        continuation = self._exact_site(frames, index, seed, offset)
-            device_inputs = self._inputs(frames, arrays['inputs'], site['input_count'])
-            if continuation is not None:
-                packet = cp.concatenate((device_inputs, continuation[:, None]), axis=1).get()
-                host_inputs = packet[:, :-1].copy()
-                for row in np.flatnonzero(packet[:, -1]):
-                    completed = _native.cuda_history_replay(self.handle, seed, offset+int(row),
-                        tuple(x[row].tobytes() for x in previous_inputs),
-                        tuple(x[row].tobytes() for x in previous_outputs))
-                    host_inputs[row] = np.frombuffer(completed, dtype=np.uint8)
-            else:
-                host_inputs = device_inputs.get()
+                    self._affine_site(frames, ranks, index, seed, offset)
+            host_inputs = self._inputs(frames, arrays['inputs'], site['input_count']).get()
             inst, controller = binding
             outputs = np.empty((shots, site['output_count']), dtype=np.uint8)
             for row, bits in enumerate(host_inputs.tolist()):

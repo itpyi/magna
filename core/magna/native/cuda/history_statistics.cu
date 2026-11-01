@@ -41,28 +41,26 @@ __device__ bool difference(const i64* a, i64 pa, const i64* b, i64 pb, i64* out,
     }
     return true;
 }
-__device__ bool contribution(const i64* c,const int* p,int queries,i64 norm_power,
-                             bool affine,i64 rank,double weight,double* value,i64* exponent) {
-    if(queries<2 || queries>3 || rank<-(1LL<<50) || rank>(1LL<<50) ||
-       norm_power<-(1LL<<50) || norm_power>(1LL<<50) || !isfinite(weight) || weight<0.) return false;
-    double pm,am,em=0.,tm,unused; i64 pe,ae,ee=0,te,up;
-    if(!real_value(c,p[0],pm,pe) || !real_value(c+4,p[1],am,ae)) return false;
+__device__ bool contribution(const i64* c,const int* p,int queries,i64 rank,
+                             double weight,double* value,i64* exponent) {
+    if(queries<1 || queries>2 || rank<-(1LL<<50) || rank>(1LL<<50) ||
+       !isfinite(weight) || weight<0.) return false;
+    double am,em=0.,tm; i64 ae,ee=0,te;
+    if(!real_value(c,p[0],am,ae)) return false;
     i64 delta[4],dp;
-    if(!difference(c,p[0],c+4,p[1],delta,dp) || !real_value(delta,dp,unused,up)) return false;
-    if(queries==3) {
-        if(!real_value(c+8,(i64)p[2]-norm_power,tm,te) ||
-           !difference(c+4,p[1],c+8,(i64)p[2]-norm_power,delta,dp) ||
+    if(queries==2) {
+        if(!real_value(c+4,p[1],tm,te) ||
+           !difference(c,p[0],c+4,p[1],delta,dp) ||
            !real_value(delta,dp,em,ee)) return false;
     }
-    if(!affine && pm==0.) return false;
     int we=0;
     double wm=frexp(weight,&we);
     double numerator[2]={am,em}; i64 powers[2]={ae,ee};
     for(int j=0;j<2;++j) {
-        double v=numerator[j]*wm/(affine?1.:pm);
+        double v=numerator[j]*wm;
         int shift=0;
         value[j]=frexp(v,&shift);
-        exponent[j]=v ? powers[j]+we+shift+(affine?rank:-pe) : 0;
+        exponent[j]=v ? powers[j]+we+shift+rank : 0;
     }
     return true;
 }
@@ -109,7 +107,7 @@ __device__ void reduce_block(double shared[8][128],double* state) {
     }
 }
 extern "C" __global__ void history_moments(const i64* coefficients,const int* powers,const int* status,
-        const i64* ranks,const double* weights,int affine,int weighted,u64 shots,int queries,i64 norm_power,
+        const i64* ranks,const double* weights,int weighted,u64 shots,int queries,
         double* partial,unsigned char* continuation) {
     __shared__ double shared[8][128];
     u64 shot=(u64)blockIdx.x*128+threadIdx.x;
@@ -117,8 +115,8 @@ extern "C" __global__ void history_moments(const i64* coefficients,const int* po
     if(shot<shots) {
         bool ok=true;for(int j=0;j<queries;++j)if(status[shot*queries+j])ok=false;
         i64 exponent[2]={0,0};
-        if(ok)ok=contribution(coefficients+shot*queries*4,powers+shot*queries,queries,norm_power,
-                               affine,affine?ranks[shot]:0,weighted?weights[shot]:1.,state,exponent);
+        if(ok)ok=contribution(coefficients+shot*queries*4,powers+shot*queries,queries,
+                               ranks[shot],weighted?weights[shot]:1.,state,exponent);
         continuation[shot]=ok?0:1;
         if(ok){state[5]=1.;state[6]=(double)exponent[0];state[7]=(double)exponent[1];}
         else for(int j=0;j<8;++j)state[j]=0.;
