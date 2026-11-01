@@ -180,7 +180,7 @@ class CudaSampler:
                 frames = self._noise.sample(size, seed, offset=offset+first)
             yield self._gpu_moments(self._queries.evaluate(frames), weights)
 
-    def run(self, shots, *, seed=0, offset=0, batch_size=65536):
+    def run(self, shots, *, seed=0, offset=0, batch_size=None):
         """Attempt ``shots`` draws in chunks of at most ``batch_size``.
 
         Draw ``j`` uses Philox random numbers addressed by ``(seed, offset + j)``,
@@ -190,6 +190,8 @@ class CudaSampler:
         shots, seed, offset = _uint64(shots, 'shots'), _uint64(seed, 'seed'), _uint64(offset, 'offset')
         if shots and offset > MASK64-(shots-1):
             raise ValueError('global shot ID overflows uint64')
+        if batch_size is None:
+            batch_size = 4096 if self._history is not None else 65536
         if isinstance(batch_size, bool):
             raise TypeError('batch_size must be an integer')
         batch_size = index(batch_size)

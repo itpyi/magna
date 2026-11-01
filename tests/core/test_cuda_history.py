@@ -17,6 +17,17 @@ from magna._cuda_history_statistics import _scientific_moments, _summarize_scale
 
 
 class HistoryCapabilityTests(unittest.TestCase):
+    def test_automatic_batches_and_explicit_override(self):
+        plain = CudaSampler(compile_circuit(parse_circuit('H 0')))
+        self.assertEqual(plain.run(0)['batch_size'], 65536)
+        registry = ControllerRegistry()
+        registry.register('copy', lambda bits, config: bits, version='1')
+        circuit = parse_circuit('H 0\nM 0\nDETECTOR rec[-1]\nCONTROL[copy] det[0] -> ctrl[0]\nCX ctrl[0] 1', controllers=registry)
+        decoder = CudaSampler(compile_circuit(circuit))
+        self.assertEqual(decoder.run(0)['batch_size'], 4096)
+        for sampler in (plain, decoder):
+            self.assertEqual(sampler.run(0, batch_size=16384)['batch_size'], 16384)
+
     def test_exact_marginal_decoder_is_rejected_at_construction(self):
         registry = ControllerRegistry()
         registry.register('copy', lambda bits, config: bits, version='1')

@@ -48,11 +48,13 @@ result = sampler.run(1_048_576, seed=7)
 print(result["estimates"], result["standard_errors"])
 ```
 
-`CudaSampler.run(shots, *, seed=0, offset=0, batch_size=65536)` attempts `shots` draws.
+`CudaSampler.run(shots, *, seed=0, offset=0, batch_size=None)` attempts `shots` draws.
 Draws are numbered from `offset`, so `run(n, seed=7, offset=n)` continues a run of `n` draws with the next `n`.
 
 The GPU processes the draws in batches of at most `batch_size` (up to 1,000,000);
-larger batches use more GPU memory.
+`None` chooses 4096 for decoder tasks and 65536 otherwise. Larger batches use more memory.
+For a fixed decoder task, host and GPU memory grow approximately with batch size;
+wider decoder sites need more memory. Choose a smaller batch when memory is limited.
 
 The first call also compiles the GPU code, so reuse one sampler for repeated runs.
 After changing the circuit, task, sampling or options, compile again and create a new sampler.
@@ -93,7 +95,8 @@ The example tasks run as follows:
 |---|---|
 | `status` | `complete` |
 | `requested`, `completed` | Number of draws |
-| `seed`, `offset`, `batch_size` | The arguments of `run` |
+| `seed`, `offset` | The arguments of `run` |
+| `batch_size` | The effective batch size after resolving `None` |
 | `estimates` | `acceptance`, `error` and `conditional_error` |
 | `standard_errors` | Standard errors of the same three estimates |
 | `timings.sampling_seconds` | Time spent sampling |
