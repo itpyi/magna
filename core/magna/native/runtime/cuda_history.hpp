@@ -451,7 +451,8 @@ struct CudaHistoryReplay {
         proposal_rank = plan.sector_rank;
         packed.w.resize(2 * experiment.words + plan.auxiliary_words);
         for(auto bit : sector.indices()) packed.w[2 * experiment.words + bit / 64] |= uint64_t(1) << (bit % 64);
-        session = std::make_unique<SamplingNetworkSession>(*run.history, *experiment.engine->plan, sector);
+        session = std::make_unique<SamplingNetworkSession>(
+                *run.history, *experiment.engine->plan, sector, run.observation.layout.get());
         synchronize();
     }
     void synchronize() {
@@ -477,9 +478,8 @@ struct CudaHistoryReplay {
             }
         } else if(!site.pending.empty()) {
             CudaPhilox rng(shot, cuda_history_seed(seed, index + 2));
-            auto affine = experiment.engine->reference_records.at("sampling").affine_values(
-                    site.pending, labels, plan.sector_bits, frame, sector);
-            if(affine) word = *affine;
+            const auto& request = (site.stage == "protocol" ? run.observation.protocol : run.observation.recovery).at(site.index);
+            if(request.affine) word = affine_word(request, sector, frame);
             else if(run.proposal) {
                 if(!support.zero) {
                     word = support.base;
@@ -512,10 +512,7 @@ struct CudaHistoryReplay {
             known.insert(site.pending[j], word.bit(j));
             known.rows.push_back(site.pending[j]); known.values.push_back(word.bit(j));
             known_coordinates.labels.push_back(site.labels[j]);
-            Bits physical;
-            if(site.labels[j].size() <= plan.sector_bits)
-                site.pending[j].each([&](size_t bit) { physical.set(experiment.engine->reference_records.at("sampling").physical.at(bit)); });
-            session->committed.append(site.labels[j], word.bit(j), site.labels[j].size() <= plan.sector_bits ? &physical : nullptr);
+            session->committed.append(word.bit(j));
         }
         std::vector<int> result;
         for(const auto& input : site.inputs) result.push_back(cuda_affine_value(input, packed));
