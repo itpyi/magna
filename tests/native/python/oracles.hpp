@@ -3,6 +3,15 @@
 // core/magna/native/bindings/module.hpp, whose helpers they use.
 #pragma once
 namespace {
+PyObject* cuda_oversized_weight_plan(PyObject*, PyObject*) {
+    try {
+        CudaQueryPlan base;
+        base.mode = 1;
+        Scalar weight;
+        weight.c[0] = Integer(1).shift(63) + Integer(1);
+        return cuda_query_plan_output(cuda_query_scale(base, weight));
+    } catch(...) { return execution_error(); }
+}
 // Helpers used only by the oracles below.
 DecisionValues read_decisions(PyObject* raw) {
     Seq rows(raw);

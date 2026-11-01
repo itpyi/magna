@@ -376,6 +376,12 @@ inline CudaQueryPlan cuda_query_cap(const CudaQueryPlan& mother, const std::vect
     return out;
 }
 
+inline Scalar cuda_query_weight(Scalar weight) {
+    for(const auto& coefficient : weight.c)
+        if(integer_bits(coefficient) > 63)
+            throw std::invalid_argument("CUDA mode-5 entry-weight coefficient exceeds the signed int64 magnitude bound (2^63-1)");
+    return weight;
+}
 inline CudaQueryPlan cuda_query_entries(const CudaQueryPlan& mother, const PhaseResource& resource) {
     CudaQueryPlan out;
     out.mode = 5; out.n = mother.n; out.frame_words = mother.frame_words; out.input_bits = mother.input_bits;
@@ -400,19 +406,19 @@ inline CudaQueryPlan cuda_query_entries(const CudaQueryPlan& mother, const Phase
             rhs.push_back({{}, value});
         }
         out.components.push_back(cuda_query_cap(component, equations, rhs));
-        out.weights.push_back(entry.coefficient);
+        out.weights.push_back(cuda_query_weight(entry.coefficient));
     }
     return out;
 }
 inline CudaQueryPlan cuda_query_scale(CudaQueryPlan query, const Scalar& scale) {
     if(!query.mode || (scale.c == Scalar(1).c && scale.power == 0)) return query;
     if(query.mode == 5) {
-        for(auto& weight : query.weights) weight = weight * scale;
+        for(auto& weight : query.weights) weight = cuda_query_weight(weight * scale);
         return query;
     }
     CudaQueryPlan result;
     result.mode = 5; result.n = query.n; result.frame_words = query.frame_words; result.input_bits = query.input_bits;
-    result.components.push_back(std::move(query)); result.weights.push_back(scale);
+    result.components.push_back(std::move(query)); result.weights.push_back(cuda_query_weight(scale));
     return result;
 }
 

@@ -23,6 +23,10 @@ def number(value):
 
 
 class CudaHistoryCpuTests(unittest.TestCase):
+    def test_oversized_entry_weight_is_rejected_during_plan_construction(self):
+        from tests.support.native_testing import load
+        with self.assertRaisesRegex(ValueError, 'entry-weight coefficient.*int64'):
+            load().cuda_oversized_weight_plan()
 
     def test_replay_preserves_importance_likelihoods(self):
         registry = ControllerRegistry()

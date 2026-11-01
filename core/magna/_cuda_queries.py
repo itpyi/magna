@@ -78,9 +78,8 @@ class GpuQueries:
         for raw in self.metadata:
             if raw['mode'] == 5:
                 weights, powers = zip(*raw['weights'])
-                fits = all(-(1 << 63) < x < (1 << 63) for row in weights for x in row)
                 host = dict(components=GpuQueries(experiment, raw['components'], real_output=False),
-                    weights=np.asarray(weights, dtype=np.int64) if fits else None,
+                    weights=np.asarray(weights, dtype=np.int64),
                     weight_powers=np.asarray(powers, dtype=np.int64))
             else:
                 host = _query_arrays(raw)
@@ -95,7 +94,7 @@ class GpuQueries:
             for raw, host in self._host_plans:
                 if raw['mode'] == 5:
                     arrays = dict(components=host['components'],
-                        weights=None if host['weights'] is None else cp.asarray(host['weights']),
+                        weights=cp.asarray(host['weights']),
                         weight_powers=cp.asarray(host['weight_powers']))
                     plans.append((raw, arrays, None, None))
                     if self._sum_kernel is None:
@@ -133,11 +132,6 @@ class GpuQueries:
         if shots:
             for query, (raw, arrays, feature_kernel, kernel) in enumerate(self._plans):
                 if raw['mode'] == 5:
-                    if arrays['weights'] is None:
-                        coefficients[:, query].fill(0)
-                        powers[:, query].fill(0)
-                        status[:, query].fill(1)
-                        continue
                     values = arrays['components'].evaluate(device_frames)
                     self._sum_kernel(((shots+127)//128,), (128,),
                         (values.coefficients, values.powers, values.status,
