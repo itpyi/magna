@@ -58,7 +58,7 @@ struct RunContext {
         if(shared_budget && limits.queries) {
             auto used = shared_budget->queries.load(std::memory_order_relaxed);
             do {
-                if(limits.queries && used >= *limits.queries)
+                if(used >= *limits.queries)
                     throw ResourceLimitError(
                             "run reached its quantum-query budget", "max_queries", double(*limits.queries));
             } while(!shared_budget->queries.compare_exchange_weak(used, used + 1, std::memory_order_relaxed));

@@ -175,9 +175,34 @@ not release that memory. See [resource limits](options.md) when setting budgets.
 
 Python decoders can limit speedup. For reproducible results, decoders should return
 the same output for the same inputs and configuration, without relying on call
-order or shared mutable state. Decoders that release Python's interpreter lock
-must be thread-safe. Calling the same compiled circuit from a decoder or signal
-handler during parallel sampling raises `RuntimeError`.
+order or shared mutable state. Objects cached globally (including with
+`functools.lru_cache`) are shared by all workers. Access to each such decoder must
+either stay protected by Python's interpreter lock (GIL) for the whole call or be
+safe for concurrent calls. If a decoder releases the GIL and does not guarantee
+concurrent use, keep a separate instance per thread, for example:
+
+```python
+from threading import local
+from pymatching import Matching
+from stim import DetectorErrorModel
+
+_decoders = local()
+
+def decode(bits, config):
+    if not hasattr(_decoders, "cache"):
+        _decoders.cache = {}
+    path = config["dem_path"]
+    if path not in _decoders.cache:
+        _decoders.cache[path] = Matching.from_detector_error_model(DetectorErrorModel.from_file(path))
+    return tuple(int(bit) for bit in _decoders.cache[path].decode(bits))
+```
+
+Here `dem_path` identifies an unchanged detector error model; configure it through
+your [controller binding](controllers.md). Thread-local instances survive
+successive callbacks and runs on the same compiled circuit. Pure Python work
+still competes for the GIL, so this pattern does not guarantee a speedup.
+Calling the same compiled circuit from a decoder or signal handler during
+parallel sampling raises `RuntimeError`.
 
 On POSIX, only use `fork` when sampling and decoder calls are idle.
 

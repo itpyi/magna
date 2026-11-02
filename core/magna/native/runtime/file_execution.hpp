@@ -72,9 +72,12 @@ struct CompiledExperiment {
                 run.user_depth++;
                 return;
             }
-            if(!run.user.compare_exchange_strong(none, self))
+            if(!run.user.compare_exchange_strong(none, self)) {
+                if(run.parallel_active.load())
+                    throw std::runtime_error("this compiled circuit is in use by parallel workers");
                 throw std::runtime_error(
                         "this compiled circuit is in use by another thread; compile one circuit per thread");
+            }
             run.user_depth = 1;
         }
         ~ExclusiveUse() {

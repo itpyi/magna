@@ -64,6 +64,9 @@ so the resource report does not change from draw to draw.
 | Invalid circuit, task or configuration, including a decoder name without a binding or a binding that cannot be imported | An exception before any work (`CircuitSyntaxError` or `ValueError`); the CLI exits with status 2 |
 
 The simulator never falls back to an approximation when a limit is hit.
+In a parallel run, later draws already in progress may finish after an earlier
+draw fails. Their results are discarded, but their work still counts toward
+`max_queries` and the reported query counts and timings.
 Raise the limit, simplify the target preparation, or reduce the number of output qubits.
 
 `validate` checks syntax and configuration without preparing decompositions;

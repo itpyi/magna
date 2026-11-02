@@ -2,6 +2,7 @@
 from contextlib import redirect_stderr, redirect_stdout
 from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
+import gc
 import json
 import math
 import os
@@ -16,6 +17,7 @@ import textwrap
 import threading
 import time
 import unittest
+import weakref
 from unittest.mock import patch
 
 from magna import ControllerRegistry, compile_circuit, parse_circuit, run
@@ -267,6 +269,16 @@ class ParallelSamplingTests(unittest.TestCase):
                         self.assertEqual(state['proposal_arithmetic_payload_bytes'],
                                          initial['proposal_arithmetic_payload_bytes'])
 
+    def test_plan_counts_do_not_multiply_with_cached_workers(self):
+        compiled = compile_circuit(parse_circuit('H 0\nT 0\nZ_ERROR(1/7) 0'),
+                                   ideal_state=parse_circuit('H 0'), options={'max_plans': 4})
+        expected = (len(compiled.plans), len(compiled._plan_structures))
+        self.assertEqual(expected, (2, 2))
+        for workers in (4, 8, 2, 1):
+            result = run(compiled, shots=33, seed=19, workers=workers)
+            self.assertEqual(result['status'], 'complete', result['failures'])
+            self.assertEqual((len(compiled.plans), len(compiled._plan_structures)), expected)
+
     def test_failed_reconfiguration_releases_shared_plans_and_recovers(self):
         circuit = parse_circuit('H 0\nT 0\nH 0\nT 0\nH 0\nDEPOLARIZE1(1/7) 0\nM 0')
         kwargs = dict(task={'sample_records': [0]}, ideal_state=parse_circuit('I 0'))
@@ -333,6 +345,63 @@ class ParallelSamplingTests(unittest.TestCase):
         result = run(circuit, shots=17, seed=13, workers=4, task={'outputs': [1]})
         self.assertEqual(result['status'], 'complete', result['failures'])
         self.assertEqual(len(calls), 17)
+
+    def test_decoder_thread_local_state_survives_callbacks_and_runs(self):
+        class Decoder:
+            def __init__(self):
+                self.calls = 0
+
+        for workers in (4, 8):
+            with self.subTest(workers=workers):
+                local = threading.local()
+                counts, references = {}, []
+                phase = [0]
+                barrier = threading.Barrier(workers)
+                def decoder(bits, config):
+                    if not hasattr(local, 'decoder'):
+                        local.decoder = Decoder()
+                        references.append(weakref.ref(local.decoder))
+                    state = local.decoder
+                    state.calls += 1
+                    counts[threading.get_ident()] = state.calls
+                    if getattr(local, 'phase', -1) != phase[0]:
+                        local.phase = phase[0]
+                        barrier.wait(timeout=10)
+                    return bits
+                registry = ControllerRegistry()
+                registry.register('echo', decoder, version='1')
+                compiled = compile_circuit(parse_circuit(
+                    'X 0\nM 0\nDETECTOR rec[-1]\n'
+                    'CONTROL[echo] det[-1] -> ctrl[0]\nCX ctrl[0] 1\nM 1',
+                    controllers=registry), task={'sample_records': [0, 1]})
+                shots = 129
+                for repeat in range(2):
+                    phase[0] = repeat
+                    result = run(compiled, shots=shots, workers=workers, seed=12)
+                    self.assertEqual(result['status'], 'complete', result['failures'])
+                    self.assertEqual(result['sampled_records'], [[1, 1]] * shots)
+                    self.assertEqual(len(references), workers)
+                    self.assertEqual(len(counts), workers)
+                    self.assertEqual(sum(counts.values()), shots * (repeat + 1))
+                self.assertTrue(all(reference() is not None for reference in references))
+                del compiled
+                gc.collect()
+                self.assertTrue(all(reference() is None for reference in references))
+
+    def test_decoder_cannot_reenter_its_parallel_compiled_circuit(self):
+        registry = ControllerRegistry()
+        def decoder(bits, config):
+            compiled.sample(Random(5))
+            return bits
+        registry.register('echo', decoder, version='1')
+        compiled = compile_circuit(parse_circuit(
+            'H 0\nM 0\nDETECTOR rec[-1]\nCONTROL[echo] det[-1] -> ctrl[0]\nCX ctrl[0] 1',
+            controllers=registry))
+        failed = run(compiled, shots=17, workers=4)
+        self.assertEqual(failed['status'], 'failed')
+        # The public controller adapter wraps callback exceptions in ValueError.
+        self.assertEqual(failed['failures'][0]['type'], 'ValueError')
+        self.assertIn('in use by parallel workers', failed['failures'][0]['message'])
 
     def test_controller_failure_is_reported_and_compiled_circuit_remains_usable(self):
         fail = [True]

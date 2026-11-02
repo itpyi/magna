@@ -13,8 +13,8 @@
 
 namespace magic_native {
 // A compiled circuit keeps its threads alongside its worker-owned runtimes. A
-// window borrows its job only until every participating thread has completed, so
-// no callback or Python object is retained by an idle worker.
+// window borrows its job only until every participating thread has completed.
+// An optional language context is created and destroyed on its worker thread.
 class ParallelFileThreads {
     struct Worker {
         std::condition_variable ready;
@@ -29,8 +29,10 @@ class ParallelFileThreads {
     const std::function<void(size_t)>* job = nullptr;
     std::atomic<bool>* cancelled = nullptr;
     std::exception_ptr worker_error;
+    const std::function<std::shared_ptr<void>()> make_context;
 
     void serve(Worker& worker, size_t index) {
+        std::shared_ptr<void> context;
         std::unique_lock<std::mutex> lock(mutex);
         for(;;) {
             worker.ready.wait(lock, [&]() { return stopping || worker.assigned; });
@@ -39,6 +41,7 @@ class ParallelFileThreads {
             lock.unlock();
             std::exception_ptr error;
             try {
+                if(!context && make_context) context = make_context();
                 (*job)(index);
             } catch(...) {
                 error = std::current_exception();
@@ -65,6 +68,8 @@ class ParallelFileThreads {
     }
 
 public:
+    explicit ParallelFileThreads(std::function<std::shared_ptr<void>()> make_context)
+        : make_context(std::move(make_context)) {}
     ~ParallelFileThreads() {
         {
             std::lock_guard<std::mutex> lock(mutex);
@@ -108,6 +113,7 @@ public:
 
 class ParallelFileExecutor {
     std::unique_ptr<ParallelFileThreads> threads;
+    std::function<std::shared_ptr<void>()> make_context;
 #if defined(__unix__) || defined(__APPLE__)
     pid_t process = getpid();
 #endif
@@ -126,11 +132,17 @@ class ParallelFileExecutor {
 #endif
     }
 public:
+    explicit ParallelFileExecutor(std::function<std::shared_ptr<void>()> make_context = {})
+        : make_context(std::move(make_context)) {}
     ~ParallelFileExecutor() { discard_inherited(); }
+    void close() {
+        discard_inherited();
+        threads.reset();
+    }
     std::exception_ptr execute(size_t count, const std::function<void(size_t)>& work,
             const std::function<void()>& checkpoint, std::atomic<bool>& cancel) {
         discard_inherited();
-        if(!threads) threads = std::make_unique<ParallelFileThreads>();
+        if(!threads) threads = std::make_unique<ParallelFileThreads>(make_context);
         return threads->execute(count, work, checkpoint, cancel);
     }
 };
@@ -185,6 +197,9 @@ inline void advance_parallel_file_batch(CompiledExperiment& main,
         std::atomic<bool> cancelled{false};
         auto interrupted = executor.execute(workers, [&](size_t worker) {
             auto* run = runs[worker];
+            std::mt19937_64 rng;
+            auto local = hooks;
+            local.seed = [&]() { return rng(); };
             // Contiguous claims reduce contention and adjacent result writes;
             // short chunks still balance histories with different costs.
             const size_t chunk_size = std::min(size_t(16), std::max(size_t(1), size / (workers * 4)));
@@ -195,9 +210,7 @@ inline void advance_parallel_file_batch(CompiledExperiment& main,
                 for(size_t j = begin; j < end; j++) {
                     if(j >= failed.load(std::memory_order_relaxed) || cancelled.load(std::memory_order_relaxed)) return;
                     try {
-                        std::mt19937_64 rng(seeds[j]);
-                        auto local = hooks;
-                        local.seed = [&]() { return rng(); };
+                        rng.seed(seeds[j]);
                         auto result = run->sample(local);
                         draws[j] = Draw{result.contribution(), std::move(result.samples)};
                     } catch(...) {

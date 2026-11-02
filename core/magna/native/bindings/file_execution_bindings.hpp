@@ -7,6 +7,13 @@ struct CallbackGIL {
 // worker's GIL and restore it on the calling thread after every worker has joined.
 struct PythonCallbackError : std::exception {
     struct Value {
+#if PY_VERSION_HEX >= 0x030C0000
+        PyObject* value = PyErr_GetRaisedException();
+        ~Value() {
+            CallbackGIL gil;
+            Py_XDECREF(value);
+        }
+#else
         PyObject *type = nullptr, *value = nullptr, *traceback = nullptr;
         Value() { PyErr_Fetch(&type, &value, &traceback); }
         ~Value() {
@@ -15,12 +22,36 @@ struct PythonCallbackError : std::exception {
             Py_XDECREF(value);
             Py_XDECREF(traceback);
         }
+#endif
     };
     std::shared_ptr<Value> captured = std::make_shared<Value>();
     void restore() const {
+#if PY_VERSION_HEX >= 0x030C0000
+        PyErr_SetRaisedException(Py_XNewRef(captured->value));
+#else
         PyErr_Restore(Py_XNewRef(captured->type), Py_XNewRef(captured->value), Py_XNewRef(captured->traceback));
+#endif
     }
 };
+// Create on the pool thread, before its first callback. PyGILState_Ensure then
+// reuses this explicitly owned state instead of allocating one per invocation.
+// Delete on that same worker thread, with the caller's GIL released for join.
+std::shared_ptr<void> worker_python_state(PyInterpreterState* interpreter) {
+    struct State {
+        PyThreadState* value = nullptr;
+        ~State() {
+            // Python clears other states before finalizing module globals.
+            if(!value || !Py_IsInitialized()) return;
+            PyEval_RestoreThread(value);
+            PyThreadState_Clear(value);
+            PyThreadState_DeleteCurrent();
+        }
+    };
+    auto state = std::make_shared<State>();
+    state->value = PyThreadState_New(interpreter);
+    if(!state->value) throw std::bad_alloc();
+    return state;
+}
 PyObject* controller_bits_valid(PyObject*, PyObject* values) {
     if(!PyTuple_CheckExact(values)) {
         PyErr_SetString(PyExc_TypeError, "controller bits must be a tuple");
@@ -40,7 +71,22 @@ struct FileExecutionBinding {
     std::vector<std::unique_ptr<CompiledExperiment>> workers;
     ParallelFileExecutor parallel;
     PyObject* callbacks = nullptr;
-    ~FileExecutionBinding() { Py_XDECREF(callbacks); }
+    FileExecutionBinding()
+        : parallel([interpreter = PyThreadState_GetInterpreter(PyThreadState_Get())]() {
+              return worker_python_state(interpreter);
+          }) {}
+    ~FileExecutionBinding() {
+        if(Py_IsInitialized()) {
+            auto* state = PyEval_SaveThread();
+            parallel.close();
+            PyEval_RestoreThread(state);
+        } else {
+            // Finalization already cleared the worker states; they exit without
+            // trying to reacquire the GIL, which Python no longer permits.
+            parallel.close();
+        }
+        Py_XDECREF(callbacks);
+    }
 };
 FileExecutionBinding* execution_handle(PyObject* cap) {
     return static_cast<FileExecutionBinding*>(PyCapsule_GetPointer(cap, "magic-file-execution-v1"));
@@ -131,10 +177,6 @@ PyObject* file_execution_state(PyObject*, PyObject* args) {
         auto& run = *owner->run;
         const auto& c = run.context;
         size_t plans = run.plans.size(), structures = run.plans.structure_size();
-        for(const auto& worker : owner->workers) {
-            plans += worker->plans.size();
-            structures += worker->plans.structure_size();
-        }
         Object out(Py_BuildValue("{s:n,s:n,s:d,s:d,s:d,s:n,s:n}", "queries", Py_ssize_t(c.queries), "compilations",
                 Py_ssize_t(c.compilations), "compile_seconds", c.compile_seconds, "kernel_seconds", c.kernel_seconds,
                 "decoder_seconds", c.decoder_seconds, "plans", Py_ssize_t(plans), "structures",
