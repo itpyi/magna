@@ -1,5 +1,6 @@
 include pyproject.toml setup.py
 include docs/software/index.md
 recursive-include core/magna/native *.hpp *.cpp
+recursive-include core/magna/native/cuda *.cu
 recursive-include core/magna/data *.json
 global-exclude __pycache__ *.py[cod] *.so *.pyd native-build.json native-reference-build.json

@@ -1,4 +1,6 @@
-"""Zero accepted mass skips outputs without changing histories or exact metadata."""
+"""Zero accepted mass skips outputs while preserving histories,
+target normalization and the optional error field.
+"""
 from random import Random
 import unittest
 

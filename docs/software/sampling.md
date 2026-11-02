@@ -5,6 +5,8 @@ measurement bits those decoders read. Two independent choices control these draw
 the *noise proposal* (physical or importance) and the *history sampler*
 (`affine_support` or `exact_marginal`). Everything else in a draw is exact.
 
+The experimental [CUDA sampler](cuda.md) runs physical and importance sampling of supported tasks on an NVIDIA GPU.
+
 ## Physical sampling
 
 By default faults are drawn from the noise declared in the circuit.

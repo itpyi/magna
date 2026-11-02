@@ -32,6 +32,8 @@ copy a directory and the runner next to an installed simulator to run it anywher
 The TQD tasks call their authors' decoder, which is not distributed here;
 `python scripts/fetch_author_decoder.py` downloads it at the pinned commit and checks its hashes.
 
+An experimental [CUDA backend](docs/software/cuda.md) runs physical and importance sampling of supported tasks on an NVIDIA GPU.
+
 ## Documentation
 
 [User manual](https://itpyi.github.io/magna/)

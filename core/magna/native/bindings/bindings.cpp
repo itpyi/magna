@@ -2,6 +2,17 @@
 namespace {
 PyMethodDef methods[] = {{"literal_program_layout", literal_program_layout, METH_O,
                                  "Assign unique temporary compiler IDs and explicit inline outcome records."},
+        {"make_cuda_experiment", make_cuda_experiment, METH_O, "Prepare the fixed noise plan for the CUDA sampler."},
+        {"make_cuda_queries", make_cuda_queries, METH_O, "Prepare exact GPU probability queries."},
+        {"cuda_noise_metadata", cuda_noise_metadata, METH_O, "Export integer noise laws for fused CUDA sampling."},
+        {"cuda_noise_validate", cuda_noise_validate, METH_O, "Validate a fused CUDA noise plan."},
+        // CPU references for the CUDA sampler's tests.
+        {"_cuda_query_cpu_evaluate", cuda_query_cpu_evaluate, METH_VARARGS, "CPU reference of GPU query plans."},
+        {"_cuda_noise_cpu_sample", cuda_noise_cpu_sample, METH_VARARGS, "CPU reference of fused CUDA noise sampling."},
+        {"_cuda_draw_noise", cuda_draw_noise, METH_VARARGS, "Draw native noise actions as a sparse batch."},
+        {"_cuda_map_frames", cuda_map_frames, METH_VARARGS, "Map a sparse noise batch to Pauli frames."},
+        {"_cuda_evaluate_frames", cuda_evaluate_frames, METH_VARARGS, "Evaluate complete frames exactly."},
+        {"_cuda_evaluate_noise", cuda_evaluate_noise, METH_VARARGS, "Evaluate sparse noise with the CPU sampler."},
         {"normalize_literal_program", normalize_literal_program, METH_VARARGS,
                 "Normalize a literal program without resource decomposition."},
         {"sample_weight_value", sample_weight_value, METH_VARARGS,

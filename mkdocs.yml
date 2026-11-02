@@ -19,6 +19,7 @@ nav:
       - Tasks and targets: tasks.md
       - Running and reading results: results.md
       - Sampling methods: sampling.md
+      - CUDA sampler: cuda.md
       - Exact enumeration: enumeration.md
   - Reference:
       - Command line: cli.md

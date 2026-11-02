@@ -7,12 +7,22 @@ Notable changes to magna, newest first.
 
 ### Added
 
+- An experimental CUDA sampler, `magna.cuda_sampler.CudaSampler`, runs physical and importance sampling
+  of supported tasks on an NVIDIA GPU. Install it with `pip install ".[cuda12]"`.
 - The README explains how to cite magna.
 
 ### Changed
 
-- Skip output-moment and target-overlap queries when the accepted mass is exactly zero.
 - Python decoder functions are called with less overhead, so sampling with a fast decoder is faster.
+- Each draw repeats less of the work fixed by the circuit, so sampling is faster,
+  most of all when decoders read many measurement records.
+- Sampling is faster when many draws are rejected.
+
+### Fixed
+
+- The ideal-state fingerprint in results no longer depends on where the target file is stored,
+  so the same task run from two directories reports the same fingerprints.
+  Ideal-state fingerprint values differ from those reported by earlier versions.
 
 ## 0.2.0 (2026-10-26)
 

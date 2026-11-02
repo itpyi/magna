@@ -13,6 +13,7 @@ dependencies = []
 
 [project.optional-dependencies]
 docs = ["mkdocs==1.6.1"]
+cuda12 = ["numpy>=2,<3", "cupy-cuda12x>=14,<15"]
 
 [project.scripts]
 magna = "magna.file_api:main"
@@ -27,4 +28,4 @@ include = ["magna*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-magna = ["data/*.json"]
+magna = ["data/*.json", "native/cuda/*.cu"]
