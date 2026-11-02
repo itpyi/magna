@@ -16,6 +16,14 @@ Notable changes to magna, newest first.
 ### Changed
 
 - Python decoder functions are called with less overhead, so sampling with a fast decoder is faster.
+- Each draw repeats less of the work fixed by the circuit, so sampling is faster,
+  most of all when decoders read many measurement records.
+
+### Fixed
+
+- The ideal-state fingerprint in results no longer depends on where the target file is stored,
+  so the same task run from two directories reports the same fingerprints.
+  Ideal-state fingerprint values differ from those reported by earlier versions.
 
 ## 0.2.0 (2026-10-26)
 

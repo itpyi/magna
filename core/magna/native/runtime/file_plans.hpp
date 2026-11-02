@@ -94,10 +94,70 @@ struct FileBoundary {
         }
         return result;
     }
+    // Suffix images of each template noise site's targets (a report site: its
+    // reported wire), resolved once on a boundary without continuation. Every
+    // site resolves: file qubits stay live through the noisy protocol body, and
+    // recovery and target circuits are noiseless. Drawn template actions XOR
+    // these images directly; explicit actions keep the named path.
+    std::vector<std::array<const Suffix*, 2>> noise_images;
+    void prepare_noise_images(const FileNoiseActions& actions) {
+        using Template = FileNoiseActions::Template;
+        const auto& transport = plan->compiled.plan;
+        noise_images.assign(actions.sites().size(), {nullptr, nullptr});
+        // Consecutive sites of one instruction share its anchor and location.
+        const std::string* anchor = nullptr;
+        size_t location = 0;
+        for(size_t j = 0; j < noise_images.size(); j++) {
+            const auto& site = actions.sites()[j];
+            auto& images = noise_images[j];
+            if(site.channel == Template::Report) {
+                const auto& [reported, wire] = reports.at(site.report);
+                images[0] = &transport.fault_image(locations.at(reported), int(wire));
+                continue;
+            }
+            if(!anchor || *anchor != site.anchor) {
+                location = locations.at(site.anchor);
+                anchor = &site.anchor;
+            }
+            images[0] = &transport.fault_image(location, int(site.targets[0]));
+            if(site.channel == Template::Two) images[1] = &transport.fault_image(location, int(site.targets[1]));
+        }
+    }
+    // XORs the untracked-phase frame of drawn action-table indices into frame.
+    void transport_noise(const FileNoiseActions& actions, const std::vector<int64_t>& drawn, Frame& frame) const {
+        std::vector<FeedbackFault> named;
+        std::vector<std::string> flips;
+        for(auto index : drawn) {
+            auto j = size_t(index);
+            // A boundary with a continuation has no image table.
+            if(!noise_images.empty() && !actions.custom(j)) {
+                auto [site, paulis] = actions.choice(j);
+                const auto& images = noise_images[site];
+                if(actions.sites()[site].channel == FileNoiseActions::Template::Report)
+                    Plan::xor_fault(*images[0], 1, frame);
+                else
+                    for(size_t k = 0; k < 2; k++)
+                        if(paulis[k] != 'I')
+                            Plan::xor_fault(*images[k], paulis[k] == 'X' ? 1 : paulis[k] == 'Z' ? 2 : 3, frame);
+                continue;
+            }
+            auto action = actions[j];
+            if(!action.report.empty()) flips.push_back(action.report);
+            else
+                for(const auto& [pauli, wire] : action.gates) named.push_back({action.anchor, wire, pauli});
+        }
+        if(named.empty() && flips.empty()) return;
+        auto delta = plan->assignment_transport().fault_frame(pack(named, flips).faults, false);
+        frame.x ^= delta.x;
+        frame.z ^= delta.z;
+    }
 };
+// Named actions and report flips, as supplied or enumerated. A native draw keeps
+// its action-table indices in drawn instead, which prepared boundaries transport.
 struct ActualNoise {
     NoiseActions actions;
     std::vector<std::string> flips;
+    std::vector<int64_t> drawn;
     FileFraction weight{Integer(1)};
     std::optional<ScientificValue> scientific_weight;
 };

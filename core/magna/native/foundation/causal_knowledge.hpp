@@ -19,11 +19,14 @@ struct CausalKnowledge {
     static constexpr size_t no_pivot = std::numeric_limits<size_t>::max();
     std::vector<size_t> pivots;
     std::vector<std::pair<Bits, int>> basis;
-    std::pair<Bits, int> reduce(Bits mask, int bit = 0) const {
+    // A chain records the basis rows used, in order: the value of the reduced
+    // part is the XOR of their values. Observation templates replay it per draw.
+    std::pair<Bits, int> reduce(Bits mask, int bit = 0, std::vector<size_t>* chain = nullptr) const {
         size_t words = mask.w.size();
         while(words) {
             auto pivot = 64 * (words - 1) + 63 - __builtin_clzll(mask.w[words - 1]);
             if(pivot >= pivots.size() || pivots[pivot] == no_pivot) break;
+            if(chain) chain->push_back(pivots[pivot]);
             const auto& row = basis[pivots[pivot]];
             // Matching highest pivots guarantee equal active word lengths.
             // Track that length locally and canonicalize just once on return.
@@ -34,8 +37,8 @@ struct CausalKnowledge {
         mask.w.resize(words);
         return {std::move(mask), bit};
     }
-    std::pair<bool, int> insert(const Bits& mask, int bit = 0) {
-        auto [residual, value] = reduce(mask, bit);
+    std::pair<bool, int> insert(const Bits& mask, int bit = 0, std::vector<size_t>* chain = nullptr) {
+        auto [residual, value] = reduce(mask, bit, chain);
         if(residual.empty()) return {false, value};
         auto pivot = residual.size() - 1;
         if(pivot >= pivots.size()) pivots.resize(pivot + 1, no_pivot);
@@ -43,7 +46,8 @@ struct CausalKnowledge {
         basis.push_back({std::move(residual), value});
         return {true, value};
     }
-    CausalRequest request(const std::vector<std::pair<Bits, int>>& expressions) const {
+    CausalRequest request(const std::vector<std::pair<Bits, int>>& expressions,
+            std::vector<std::vector<size_t>>* chains = nullptr) const {
         CausalRequest request;
         request.outputs.reserve(expressions.size());
         // Sorted references deduplicate equal residuals without owning a
@@ -57,7 +61,7 @@ struct CausalKnowledge {
         std::map<const Bits*, size_t, PendingLess> large_indices;
         BitsLess less;
         for(const auto& [mask, offset] : expressions) {
-            auto [residual, known] = reduce(mask);
+            auto [residual, known] = reduce(mask, 0, chains ? &chains->emplace_back() : nullptr);
             if(residual.empty()) {
                 request.outputs.push_back({{}, offset ^ known});
                 continue;

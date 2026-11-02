@@ -126,32 +126,40 @@ struct Plan {
     std::vector<Location> locations;
     std::map<int, std::vector<std::pair<int, int>>> histories;
     std::map<int, std::vector<Suffix>> suffix;
+    // Images of a Pauli placed on one wire after an original location.
+    const Suffix& fault_image(size_t location, int wire) const {
+        auto loc = locations.at(location);
+        auto hit = histories.find(wire);
+        if(hit == histories.end()) throw std::invalid_argument("fault outside wire lifetime");
+        auto& hs = hit->second;
+        auto h = std::upper_bound(hs.begin(), hs.end(), loc.index, [](int v, auto& a) { return v < a.first; });
+        if(h == hs.begin() || (--h)->second < 0) throw std::invalid_argument("fault outside wire lifetime");
+        auto& ss = suffix.at(h->second);
+        auto it = std::lower_bound(ss.begin(), ss.end(), loc.position, [](auto& a, int v) { return a.position < v; });
+        if(it == ss.end()) throw std::invalid_argument("fault suffix missing");
+        return *it;
+    }
+    // Untracked-phase transport of one Pauli (1 X, 2 Z, 3 Y) with known images.
+    static void xor_fault(const Suffix& images, int pauli, Frame& frame) {
+        if(pauli == 1 || pauli == 3) images.x.xor_into(frame);
+        if(pauli == 2 || pauli == 3) images.z.xor_into(frame);
+    }
     Frame fault_frame(std::vector<Fault> faults, bool track_global_phase = true) const {
         std::stable_sort(faults.begin(), faults.end(),
                 [&](auto& a, auto& b) { return locations.at(a.location).index < locations.at(b.location).index; });
         Frame frame;
         for(auto& f : faults) {
             if(!f.pauli) continue;
-            auto loc = locations.at(f.location);
-            auto hit = histories.find(f.wire);
-            if(hit == histories.end()) throw std::invalid_argument("fault outside wire lifetime");
-            auto& hs = hit->second;
-            auto h = std::upper_bound(hs.begin(), hs.end(), loc.index, [](int v, auto& a) { return v < a.first; });
-            if(h == hs.begin() || (--h)->second < 0) throw std::invalid_argument("fault outside wire lifetime");
-            auto& ss = suffix.at(h->second);
-            auto it =
-                    std::lower_bound(ss.begin(), ss.end(), loc.position, [](auto& a, int v) { return a.position < v; });
-            if(it == ss.end()) throw std::invalid_argument("fault suffix missing");
+            const auto& images = fault_image(f.location, f.wire);
             if(!track_global_phase) {
-                if(f.pauli == 1 || f.pauli == 3) it->x.xor_into(frame);
-                if(f.pauli == 2 || f.pauli == 3) it->z.xor_into(frame);
+                xor_fault(images, f.pauli, frame);
                 continue;
             }
             Frame image;
             if(f.pauli == 3) {
-                image = multiply(it->x.materialize(), it->z.materialize());
+                image = multiply(images.x.materialize(), images.z.materialize());
                 image.p = mod4(image.p + 1);
-            } else image = (f.pauli == 1 ? it->x : it->z).materialize();
+            } else image = (f.pauli == 1 ? images.x : images.z).materialize();
             frame = multiply(image, frame);
         }
         return frame;

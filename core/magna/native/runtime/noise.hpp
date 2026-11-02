@@ -73,48 +73,62 @@ struct FileNoiseAction {
 class FileNoiseActions {
 public:
     enum class Template { X, Y, Z, One, Two, Report };
-
-private:
     struct Site {
-        size_t offset;
         std::string anchor, report;
         std::array<size_t, 2> targets;
         Template channel;
     };
+    // A template action: its site and the Paulis ('I' when absent) on the site's two targets.
+    struct Choice {
+        size_t site;
+        std::array<char, 2> paulis;
+    };
+
+private:
     std::vector<Site> sites_;
+    // First action index of each site, kept dense so that locating a drawn
+    // action searches a compact array rather than the site records.
+    std::vector<size_t> starts_;
     std::vector<std::pair<size_t, FileNoiseAction>> explicit_;
     size_t size_ = 0;
 
 public:
     size_t size() const { return size_; }
+    const std::vector<Site>& sites() const { return sites_; }
     void push_back(FileNoiseAction action) { explicit_.emplace_back(size_++, std::move(action)); }
     void add(Template channel, std::string anchor, size_t first = 0, size_t second = 0, std::string report = {}) {
-        sites_.push_back({size_, std::move(anchor), std::move(report), {first, second}, channel});
+        sites_.push_back({std::move(anchor), std::move(report), {first, second}, channel});
+        starts_.push_back(size_);
         size_ += channel == Template::Two ? 15 : channel == Template::One ? 3 : 1;
     }
-    FileNoiseAction operator[](size_t index) const {
-        auto custom = std::lower_bound(explicit_.begin(), explicit_.end(), index,
+    const FileNoiseAction* custom(size_t index) const {
+        auto found = std::lower_bound(explicit_.begin(), explicit_.end(), index,
                 [](const auto& entry, size_t value) { return entry.first < value; });
-        if(custom != explicit_.end() && custom->first == index) return custom->second;
-        auto site = std::upper_bound(sites_.begin(), sites_.end(), index,
-                [](size_t value, const Site& entry) { return value < entry.offset; });
-        --site;
-        FileNoiseAction out{site->anchor, site->report, {}};
-        const size_t choice = index - site->offset;
-        auto gate = [&](char pauli, size_t target) {
-            if(pauli != 'I') out.gates.emplace_back(pauli, target);
-        };
-        switch(site->channel) {
-        case Template::X: gate('X', site->targets[0]); break;
-        case Template::Y: gate('Y', site->targets[0]); break;
-        case Template::Z: gate('Z', site->targets[0]); break;
-        case Template::One: gate("XYZ"[choice], site -> targets[0]); break;
-        case Template::Two:
-            gate("IXYZ"[(choice + 1) / 4], site -> targets[0]);
-            gate("IXYZ"[(choice + 1) % 4], site -> targets[1]);
-            break;
+        return found != explicit_.end() && found->first == index ? &found->second : nullptr;
+    }
+    // Decomposes an action that custom() does not hold.
+    Choice choice(size_t index) const {
+        auto position = size_t(std::upper_bound(starts_.begin(), starts_.end(), index) - starts_.begin()) - 1;
+        const auto& site = sites_[position];
+        const size_t k = index - starts_[position];
+        std::array<char, 2> paulis{'I', 'I'};
+        switch(site.channel) {
+        case Template::X: paulis[0] = 'X'; break;
+        case Template::Y: paulis[0] = 'Y'; break;
+        case Template::Z: paulis[0] = 'Z'; break;
+        case Template::One: paulis[0] = "XYZ"[k]; break;
+        case Template::Two: paulis = {"IXYZ"[(k + 1) / 4], "IXYZ"[(k + 1) % 4]}; break;
         case Template::Report: break;
         }
+        return {position, paulis};
+    }
+    FileNoiseAction operator[](size_t index) const {
+        if(const auto* action = custom(index)) return *action;
+        auto [position, paulis] = choice(index);
+        const auto& site = sites_[position];
+        FileNoiseAction out{site.anchor, site.report, {}};
+        for(size_t k = 0; k < 2; k++)
+            if(paulis[k] != 'I') out.gates.emplace_back(paulis[k], site.targets[k]);
         return out;
     }
     FileNoiseAction at(size_t index) const {
@@ -124,7 +138,9 @@ public:
     std::array<size_t, 3> storage_counts() const {
         size_t gates = 0;
         for(const auto& entry : explicit_) gates += entry.second.gates.capacity() * sizeof(std::pair<char, size_t>);
-        return {sites_.capacity() * sizeof(Site) + explicit_.capacity() * sizeof(explicit_[0]), gates, sites_.size()};
+        return {sites_.capacity() * sizeof(Site) + starts_.capacity() * sizeof(size_t) +
+                        explicit_.capacity() * sizeof(explicit_[0]),
+                gates, sites_.size()};
     }
 };
 struct FileNoisePlan {

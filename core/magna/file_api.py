@@ -467,8 +467,9 @@ def run(circuit, *, shots=1, seed=0, task=None, options=None, controllers=None,
         efficiency=efficiency,
         fingerprints=dict(circuit=fingerprint(compiled._source_circuit.to_text()), task=fingerprint(compiled.task['raw']),
                           controllers=fingerprint({name:b.fingerprint for name,b in compiled.circuit.controllers.bindings.items()}), options=fingerprint(compiled.options),
+                          # Hash the target's content and specification; evaluation reports its file path.
                           ideal_state=None if compiled.ideal_state is None or compiled._error_observables is not None
-                                      else fingerprint(compiled.ideal_state.to_dict()),
+                                      else fingerprint({k: v for k, v in compiled.ideal_state.to_dict().items() if k != 'source'}),
                           recovery=None if compiled.recovery is None else compiled.recovery.circuit.fingerprint),
         timings=dict(total_seconds=monotonic()-started, compile_seconds=used['compile_seconds'],
                      preparation_seconds=compiled._compilation.get('preparation_seconds'),

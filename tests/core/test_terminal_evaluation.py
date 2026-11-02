@@ -195,6 +195,22 @@ class TerminalEvaluationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 compile_circuit(root/'physical.magna', task=task, ideal_state=root/'target.magna')
 
+    def test_fingerprints_do_not_depend_on_file_locations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            results = []
+            for name in ('first', 'second'):
+                root = Path(directory)/name
+                root.mkdir()
+                (root/'physical.magna').write_text('X 0')
+                (root/'target.magna').write_text('I 0')
+                (root/'recovery.magna').write_text('M 0\nCX rec[-1] 0')
+                (root/'task.json').write_text(json.dumps({'ideal_state': 'target.magna', 'recovery': 'recovery.magna'}))
+                results.append(run(root/'physical.magna', task=root/'task.json'))
+            first, second = results
+            self.assertNotEqual(first['evaluation']['ideal_state']['source'],
+                                second['evaluation']['ideal_state']['source'])
+            self.assertEqual(first['fingerprints'], second['fingerprints'])
+
 
 if __name__ == '__main__':
     unittest.main()

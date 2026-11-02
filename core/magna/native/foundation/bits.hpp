@@ -149,6 +149,38 @@ struct BitsLess {
         return false;
     }
 };
+// Flattened index lists in push order: list j is items[offsets[j], offsets[j + 1]).
+struct IndexLists {
+    std::vector<size_t> offsets{0}, items;
+    template <class Range> void push(const Range& values) {
+        items.insert(items.end(), values.begin(), values.end());
+        offsets.push_back(items.size());
+    }
+    size_t size() const { return offsets.size() - 1; }
+    const size_t* begin(size_t j) const { return items.data() + offsets[j]; }
+    const size_t* end(size_t j) const { return items.data() + offsets[j + 1]; }
+};
+// Sparse transpose: list j holds the indices of the rows containing bit j.
+inline IndexLists transpose_lists(const std::vector<Bits>& rows, size_t width) {
+    std::vector<std::vector<size_t>> lists(width);
+    for(size_t i = 0; i < rows.size(); i++) {
+        if(rows[i].size() > width) throw std::invalid_argument("column outside width");
+        rows[i].each([&](size_t j) { lists[j].push_back(i); });
+    }
+    IndexLists out;
+    for(const auto& list : lists) out.push(list);
+    return out;
+}
+// XOR the lists selected by mask into out, as xor_rows_prefix does for packed
+// rows; mask bits beyond the lists are ignored. `width` bounds every index.
+inline void xor_lists(Bits& out, const IndexLists& lists, const Bits& mask, size_t width) {
+    out.w.resize(std::max(out.w.size(), (width + 63) / 64));
+    mask.each([&](size_t j) {
+        if(j < lists.size())
+            for(auto i = lists.begin(j); i != lists.end(j); i++) out.w[*i / 64] ^= uint64_t(1) << (*i % 64);
+    });
+    out.trim();
+}
 inline void validate_masks(const std::vector<Bits>& masks, size_t width) {
     for(const auto& mask : masks)
         if(mask.size() > width) throw std::invalid_argument("mask outside dimension");
