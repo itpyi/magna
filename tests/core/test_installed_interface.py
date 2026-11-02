@@ -302,7 +302,8 @@ assert mixed['estimates']['error'] == .5, mixed
             if source.is_file(): shutil.copy2(source, self.directory / source.name)
         document = (ROOT / 'docs/software/sampling.md').read_text()
         examples = re.findall(r"```python\n(.*?)```", document, re.S)
-        self.assertEqual(len(examples), 4)
+        # The fifth example defines a decoder requiring optional PyMatching/Stim.
+        self.assertEqual(len(examples), 5)
         self.python('''
 import importlib.abc, sys
 class NoProtocolImports(importlib.abc.MetaPathFinder):
