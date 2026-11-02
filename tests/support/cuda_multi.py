@@ -30,21 +30,25 @@ def cpu_worker(connection, device, snapshot):
         connection.close()
 
 
+def _ready(connection, snapshot):
+    connection.send(('ready', CudaSampler(_compile_snapshot(snapshot))._plan_digest()))
+
+
 def fail_worker(connection, device, snapshot):
-    connection.send(('ready', None))
+    _ready(connection, snapshot)
     connection.recv()
     connection.send(('error', 'injected device failure'))
     connection.close()
 
 
 def crash_worker(connection, device, snapshot):
-    connection.send(('ready', None))
+    _ready(connection, snapshot)
     connection.recv()
     os._exit(7)
 
 
 def hang_worker(connection, device, snapshot):
-    connection.send(('ready', None))
+    _ready(connection, snapshot)
     connection.recv()
     time.sleep(120)
 
@@ -52,3 +56,9 @@ def hang_worker(connection, device, snapshot):
 def startup_failure(connection, device, snapshot):
     connection.send(('error', 'injected initialization failure'))
     connection.close()
+
+
+def mismatched_worker(connection, device, snapshot):
+    sampler = CpuSampler(_compile_snapshot(snapshot))
+    sampler._noise.likelihood_values = sampler._noise.likelihood_values.copy() + 1
+    _serve(connection, sampler)

@@ -112,7 +112,7 @@ CPU and GPU runs with the same seed draw different faults.
 ## Multiple GPUs on one host
 
 Use `MultiGpuCudaSampler` for long sampling jobs on explicitly selected GPUs.
-It supports the same tasks and sampling methods as `CudaSampler`. Save this as a Python script:
+Tasks with external decoder calls are not supported. Save this as a Python script:
 
 ```python
 from magna import compile_circuit
@@ -131,6 +131,7 @@ if __name__ == "__main__":
 Select GPUs allocated to your job; IDs are logical IDs after `CUDA_VISIBLE_DEVICES` filtering.
 The main guard is required because workers start with Python's `spawn` method.
 Repeated calls reuse the workers. Use the context manager or call `close()` when finished.
+Workers verify that their rebuilt plans match the parent's before sampling.
 
 `run(shots, *, seed=0, offset=0, batch_size=65536)` takes a total shot count across all devices.
 The batch size is per device, with the same 1,000,000 limit as the single-GPU sampler.

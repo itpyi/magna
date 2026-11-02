@@ -8,11 +8,17 @@ import os
 from threading import Lock
 from time import monotonic, perf_counter
 import traceback
+import weakref
 
 import numpy as np
 
-from .cuda_sampler import CudaSampler, _merge_moments, _run_arguments, _summarize_moments
+from .cuda_sampler import CudaSampler, _run_arguments
 from ._cuda_noise import _uint64
+
+
+def _circuit_snapshot(circuit):
+    return dict(text=circuit.to_text(), max_instructions=max(1, len(circuit.instructions)),
+                max_qubits=max(1, circuit.num_qubits))
 
 
 def _snapshot(compiled):
@@ -27,9 +33,9 @@ def _snapshot(compiled):
     # A classical error-observable target is generated again by the compiler.
     if compiled.ideal_state is not None and compiled._error_observables is None:
         ideal = compiled.ideal_state
-        target = (ideal.circuit.to_text(), ideal.outputs, dict(ideal.postselection))
-    recovery = None if compiled.recovery is None else compiled.recovery.circuit.to_text()
-    return dict(circuit=compiled._source_circuit.to_text(), task=task,
+        target = (_circuit_snapshot(ideal.circuit), ideal.outputs, dict(ideal.postselection))
+    recovery = None if compiled.recovery is None else _circuit_snapshot(compiled.recovery.circuit)
+    return dict(circuit=_circuit_snapshot(compiled._source_circuit), task=task,
                 options=deepcopy(compiled.options), sampling=deepcopy(compiled.noise_schedule.sampling),
                 target=target, recovery=recovery)
 
@@ -40,14 +46,14 @@ def _compile_snapshot(snapshot):
     target = snapshot['target']
     ideal = None
     if target is not None:
-        text, outputs, postselection = target
-        ideal = parse_circuit(text)
+        circuit, outputs, postselection = target
+        ideal = parse_circuit(**circuit)
         ideal = (ideal if outputs is None and not postselection else
                  dict(circuit=ideal, outputs=outputs, postselection=postselection))
     recovery = snapshot['recovery']
-    return compile_circuit(parse_circuit(snapshot['circuit']), task=task,
+    return compile_circuit(parse_circuit(**snapshot['circuit']), task=task,
                            options=snapshot['options'], sampling=snapshot['sampling'], ideal_state=ideal,
-                           recovery=None if recovery is None else parse_circuit(recovery))
+                           recovery=None if recovery is None else parse_circuit(**recovery))
 
 
 def _partitions(shots, offset, devices):
@@ -63,7 +69,7 @@ def _partitions(shots, offset, devices):
 
 
 def _serve(connection, sampler):
-    connection.send(('ready', None))
+    connection.send(('ready', sampler._plan_digest()))
     while True:
         command = connection.recv()
         if command is None:
@@ -71,7 +77,7 @@ def _serve(connection, sampler):
         shots, seed, offset, batch_size = command
         sampler._experiment.validate()
         start = perf_counter()
-        moments = _merge_moments(sampler._chunks(shots, seed, offset, batch_size))
+        moments = sampler._sample_statistics(shots, seed, offset, batch_size)
         connection.send(('result', (moments, perf_counter()-start)))
 
 
@@ -98,6 +104,33 @@ class _Worker:
     connection: object
 
 
+def _close_workers(workers, owner, abort=False):
+    # The finalizer must not retain the sampler, or act on inherited processes.
+    if os.getpid() != owner:
+        return
+    pending = list(workers.values())
+    workers.clear()
+    for worker in pending:
+        if abort:
+            if worker.process.is_alive():
+                worker.process.terminate()
+        else:
+            try:
+                worker.connection.send(None)
+            except (OSError, EOFError):
+                pass
+    deadline = monotonic()+2
+    for worker in pending:
+        worker.process.join(max(0., deadline-monotonic()))
+    for worker in pending:
+        if worker.process.is_alive():
+            worker.process.kill()
+    for worker in pending:
+        worker.process.join()
+        worker.connection.close()
+        worker.process.close()
+
+
 class MultiGpuCudaSampler:
     """Reuse independent CUDA samplers on explicitly selected local devices.
 
@@ -109,6 +142,10 @@ class MultiGpuCudaSampler:
     without returning a misleading partial estimate.
     """
     def __init__(self, compiled, *, devices, timeout=None):
+        circuits = [compiled._source_circuit]
+        circuits += [part.circuit for part in (compiled.ideal_state, compiled.recovery) if part is not None]
+        if any(c.analysis.external_instructions for c in circuits):
+            raise ValueError('MultiGpuCudaSampler does not support tasks with decoder calls')
         devices = tuple(_uint64(d, 'device') for d in devices)
         if not devices or len(set(devices)) != len(devices):
             raise ValueError('devices must be a nonempty sequence of distinct GPU IDs')
@@ -127,6 +164,7 @@ class MultiGpuCudaSampler:
         self._closed = False
         self._owner = os.getpid()
         self._lock = Lock()
+        self._finalizer = weakref.finalize(self, _close_workers, self._workers, self._owner, True)
 
     @property
     def devices(self):
@@ -182,7 +220,12 @@ class MultiGpuCudaSampler:
                 child.close()
             self._workers[device] = _Worker(device, process, parent)
             new.append(device)
-        self._collect(new, 'ready', deadline)
+        digests = self._collect(new, 'ready', deadline)
+        if new:
+            expected = self._validation._plan_digest()
+            for device, digest in digests.items():
+                if digest != expected:
+                    raise RuntimeError(f'GPU {device} rebuilt CUDA plan differs from the parent')
 
     def run(self, shots, *, seed=0, offset=0, batch_size=65536):
         """Sample disjoint draw ranges, then merge centered statistics in range order."""
@@ -211,8 +254,8 @@ class MultiGpuCudaSampler:
                     if moments.count != part['shots']:
                         raise RuntimeError(f"GPU {part['device']} returned an incomplete shard")
                     part['sampling_seconds'] = elapsed
-                totals = _merge_moments(results[d][0] for d in active)
-                summary = _summarize_moments(totals, self._validation._has_error)
+                totals = self._validation._merge_statistics(results[d][0] for d in active)
+                summary = self._validation._summarize_statistics(totals)
                 finished = perf_counter()
             except BaseException:
                 self._shutdown(abort=True)
@@ -228,27 +271,8 @@ class MultiGpuCudaSampler:
 
     def _shutdown(self, *, abort=False):
         self._closed = True
-        workers, self._workers = list(self._workers.values()), {}
-        for worker in workers:
-            if abort:
-                if worker.process.is_alive():
-                    worker.process.terminate()
-            else:
-                try:
-                    worker.connection.send(None)
-                except (OSError, EOFError):
-                    pass
-        # Bound cleanup even when another device hangs or dies in CUDA.
-        deadline = monotonic()+2
-        for worker in workers:
-            worker.process.join(max(0., deadline-monotonic()))
-        for worker in workers:
-            if worker.process.is_alive():
-                worker.process.kill()
-        for worker in workers:
-            worker.process.join()
-            worker.connection.close()
-            worker.process.close()
+        _close_workers(self._workers, self._owner, abort)
+        self._finalizer.detach()
 
     def close(self):
         """Release all worker processes and their device allocations; idempotent."""

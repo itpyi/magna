@@ -1,10 +1,12 @@
 """Real spawn/IPC tests without CUDA, plus opt-in device parity tests."""
 from copy import deepcopy
+import gc
 import multiprocessing as mp
 import os
 from pathlib import Path
 import tempfile
 import unittest
+import weakref
 from unittest.mock import patch
 
 try:
@@ -12,10 +14,11 @@ try:
 except ImportError:
     raise unittest.SkipTest('optional NumPy required')
 
-from magna import compile_circuit, parse_circuit
+from magna import compile_circuit, parse_circuit, ControllerRegistry
 from magna.cuda_sampler import CudaSampler
-from magna.cuda_multi import MultiGpuCudaSampler, _compile_snapshot, _partitions, _snapshot
-from tests.support.cuda_multi import cpu_worker, fail_worker, crash_worker, hang_worker, startup_failure
+from magna.cuda_multi import MultiGpuCudaSampler, _compile_snapshot, _partitions, _snapshot, _circuit_snapshot
+from tests.support.cuda_multi import (CpuSampler, cpu_worker, fail_worker, crash_worker, hang_worker,
+                                     startup_failure, mismatched_worker)
 from tests.support.cuda_reference import cpu_run, cpu_sample, cpu_evaluate, contributions
 from tests.support.cuda import require_cuda
 
@@ -40,6 +43,95 @@ class MultiGpuControlTests(unittest.TestCase):
         self.patch = patch('magna.cuda_multi._worker_main', cpu_worker)
         self.patch.start()
         self.addCleanup(self.patch.stop)
+
+    def test_sampler_owns_statistics_dispatch(self):
+        single = CpuSampler(task())
+        with patch.object(single, '_merge_statistics', wraps=single._merge_statistics) as merge, \
+             patch.object(single, '_summarize_statistics', wraps=single._summarize_statistics) as summarize:
+            single.run(37, seed=7, batch_size=11)
+            merge.assert_called_once()
+            summarize.assert_called_once()
+        with MultiGpuCudaSampler(task(), devices=(0, 1), timeout=30) as pool:
+            with patch.object(pool._validation, '_merge_statistics',
+                              wraps=pool._validation._merge_statistics) as merge, \
+                 patch.object(pool._validation, '_summarize_statistics',
+                              wraps=pool._validation._summarize_statistics) as summarize:
+                assert_statistics(self, pool.run(37, seed=7, batch_size=11), single.run(37, seed=7))
+                merge.assert_called_once()
+                summarize.assert_called_once()
+
+    def test_rebuilt_plan_mismatch_closes_all_workers(self):
+        before = {p.pid for p in mp.active_children()}
+        with patch('magna.cuda_multi._worker_main', mismatched_worker):
+            pool = MultiGpuCudaSampler(task(importance=True), devices=(0, 1), timeout=30)
+            with self.assertRaisesRegex(RuntimeError, 'rebuilt CUDA plan differs'):
+                pool.run(17)
+            self.assertTrue(pool._closed)
+            self.assertEqual(pool._workers, {})
+            self.assertEqual(before, {p.pid for p in mp.active_children()})
+
+    def test_plan_digest_covers_metadata_noise_and_queries(self):
+        for change in ('metadata', 'noise', 'query', 'query_array', 'order'):
+            with self.subTest(change=change):
+                sampler = CudaSampler(task(importance=True))
+                initial = sampler._plan_digest()
+                self.assertEqual(initial, CudaSampler(_compile_snapshot(_snapshot(task(importance=True))))._plan_digest())
+                if change == 'metadata':
+                    sampler._experiment.metadata['max_shots'] += 1
+                elif change == 'noise':
+                    sampler._noise.tables['thresholds'] = sampler._noise.tables['thresholds'].copy() ^ np.uint64(1)
+                elif change == 'query':
+                    raw, host = sampler._queries._host_plans[0]
+                    raw['constant'] += 1
+                elif change == 'query_array':
+                    raw, host = sampler._queries._host_plans[0]
+                    name = next(name for name, values in host.items() if values.size)
+                    host[name] = host[name].copy()
+                    host[name].flat[0] ^= 1
+                else:
+                    sampler._experiment.metadata = dict(reversed(list(sampler._experiment.metadata.items())))
+                if change == 'order':
+                    self.assertEqual(initial, sampler._plan_digest())
+                else:
+                    self.assertNotEqual(initial, sampler._plan_digest())
+                self.assertIsNone(sampler._noise._cp)
+                self.assertIsNone(sampler._queries._cp)
+
+    def test_unclosed_pool_is_collected_and_reaps_workers(self):
+        pool = MultiGpuCudaSampler(task(), devices=(0, 1), timeout=30)
+        pool.run(2)
+        pids = {w.process.pid for w in pool._workers.values()}
+        ref = weakref.ref(pool)
+        finalizer = pool._finalizer
+        del pool
+        gc.collect()
+        self.assertIsNone(ref())
+        self.assertFalse(finalizer.alive)
+        self.assertFalse(pids & {p.pid for p in mp.active_children()})
+
+    def test_decoder_rejected_before_sampler_or_workers_created(self):
+        registry = ControllerRegistry()
+        registry.register('decode', lambda bits, config: [0], version='v1')
+        compiled = compile_circuit(parse_circuit('M 0\nDETECTOR rec[-1]\nCONTROL[decode] det[-1] -> ctrl[0]\nCX ctrl[0] 0',
+                                                 controllers=registry))
+        with patch('magna.cuda_multi.CudaSampler', side_effect=AssertionError('must reject first')):
+            with self.assertRaisesRegex(ValueError, 'does not support tasks with decoder calls'):
+                MultiGpuCudaSampler(compiled, devices=(0, 1))
+
+    def test_snapshot_parse_limits_cover_all_three_circuits(self):
+        circuit = parse_circuit('REPEAT 4 {\nH 0\n}\nH 1\nX_ERROR(1/8) 0')
+        compiled = compile_circuit(circuit, ideal_state=parse_circuit('H 0\nH 1'),
+                                   recovery=parse_circuit('X 0\nX 1'))
+        snapshot = _snapshot(compiled)
+        # A low parser default reproduces the raised-limit failure without
+        # constructing a million-instruction circuit in the ordinary suite.
+        def limited(text, *, max_instructions=1, max_qubits=1):
+            return parse_circuit(text, max_instructions=max_instructions, max_qubits=max_qubits)
+        with patch('magna.parse_circuit', side_effect=limited):
+            rebuilt = _compile_snapshot(snapshot)
+        self.assertEqual(CudaSampler(compiled)._plan_digest(), CudaSampler(rebuilt)._plan_digest())
+        large = parse_circuit('H 70000', max_qubits=70001)
+        self.assertEqual(parse_circuit(**_circuit_snapshot(large)).num_qubits, 70001)
 
     def test_partitions_cover_extreme_intervals_once(self):
         for shots in (0, 1, 3, 8, 31, 1001, 2**53):

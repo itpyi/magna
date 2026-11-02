@@ -12,6 +12,8 @@ exact; statistics are float64 estimates. Values outside the supported
 numerical range raise an error rather than being clipped.
 """
 from dataclasses import dataclass
+import hashlib
+import json
 import math
 from operator import index
 from time import perf_counter
@@ -45,7 +47,7 @@ class _Moments:
 _EMPTY = _Moments(0, np.zeros(2), np.zeros(3))
 
 
-def _run_arguments(shots, seed, offset, batch_size, max_batch_size=1_000_000):
+def _run_arguments(shots, seed, offset, batch_size, max_batch_size):
     """Shared bounds for single-device and distributed draw intervals."""
     shots, seed, offset = _uint64(shots, 'shots'), _uint64(seed, 'seed'), _uint64(offset, 'offset')
     if shots and offset > MASK64-(shots-1):
@@ -148,6 +150,34 @@ class CudaSampler:
         self._statistics_module = None
         self._unit_weights = None
 
+    def _plan_digest(self):
+        """Fingerprint host plans without creating a CUDA context."""
+        def packed(value):
+            if isinstance(value, bytes):
+                return {'bytes_sha256': hashlib.sha256(value).hexdigest()}
+            if isinstance(value, np.ndarray):
+                return dict(dtype=value.dtype.str, shape=value.shape,
+                            data_sha256=hashlib.sha256(value.tobytes()).hexdigest())
+            raise TypeError(f'unsupported CUDA plan value: {type(value).__name__}')
+
+        plans = (self._experiment.metadata, self._experiment.columns, self._experiment.base_frame,
+                 self._noise.metadata, self._noise.tables, self._noise.weighted_sites,
+                 self._noise.likelihood_values, self._queries._host_plans,
+                 self._norm_power, self._has_error)
+        encoded = json.dumps(plans, default=packed, sort_keys=True, separators=(',', ':'))
+        return hashlib.sha256(encoded.encode('utf-8')).hexdigest()
+
+    def _sample_statistics(self, shots, seed, offset, batch_size):
+        """Return merged chunk statistics for an already validated draw interval."""
+        return self._merge_statistics(self._chunks(shots, seed, offset, batch_size))
+
+    def _merge_statistics(self, chunks):
+        """Merge chunk or worker statistics in draw order."""
+        return _merge_moments(chunks)
+
+    def _summarize_statistics(self, statistics):
+        return _summarize_moments(statistics, self._has_error)
+
     def _gpu_moments(self, exact, weights=None):
         cp = self._noise.cp
         c, p = exact.coefficients, exact.powers
@@ -197,8 +227,8 @@ class CudaSampler:
         shots, seed, offset, batch_size = _run_arguments(
             shots, seed, offset, batch_size, self._experiment.metadata['max_shots'])
         start = perf_counter()
-        totals = _merge_moments(self._chunks(shots, seed, offset, batch_size))
+        totals = self._sample_statistics(shots, seed, offset, batch_size)
         return dict(status='complete', requested=shots, completed=shots,
                     seed=seed, offset=offset, batch_size=batch_size,
                     timings=dict(sampling_seconds=perf_counter()-start),
-                    **_summarize_moments(totals, self._has_error))
+                    **self._summarize_statistics(totals))
