@@ -10,6 +10,7 @@ Notable changes to magna, newest first.
 - An experimental CUDA sampler, `magna.cuda_sampler.CudaSampler`, runs physical and importance sampling
   of supported tasks on an NVIDIA GPU. Install it with `pip install ".[cuda12]"`.
 - The README explains how to cite magna.
+- Sampling can now use multiple CPU cores with `workers=N` in Python or `--workers N` on the command line.
 
 ### Changed
 

@@ -66,6 +66,8 @@ class NativeGlobalFastpathTests(unittest.TestCase):
         foreign = Simulator(self.instrument(3), Options(cache_entries=0))._prepare()
         first = CompactAssignment(sim._prepared, 0)
         second = CompactAssignment(foreign, 0)
+        # Establish shared storage explicitly; empty-tuple interning varies by Python version.
+        object.__setattr__(second, 'faults', first.faults)
         self.assertIs(first.faults, second.faults)
         with self.assertRaisesRegex(ValueError, 'different IR snapshot'):
             sim._prepared.native_plan.evaluate([first, second])

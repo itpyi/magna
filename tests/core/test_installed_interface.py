@@ -302,7 +302,7 @@ assert mixed['estimates']['error'] == .5, mixed
             if source.is_file(): shutil.copy2(source, self.directory / source.name)
         document = (ROOT / 'docs/software/sampling.md').read_text()
         examples = re.findall(r"```python\n(.*?)```", document, re.S)
-        self.assertEqual(len(examples), 3)
+        self.assertEqual(len(examples), 4)
         self.python('''
 import importlib.abc, sys
 class NoProtocolImports(importlib.abc.MetaPathFinder):
@@ -312,22 +312,30 @@ class NoProtocolImports(importlib.abc.MetaPathFinder):
 sys.meta_path.insert(0, NoProtocolImports())
 import magna
 assert 'site-packages' in magna.__file__
-''' + '\n'.join(examples) + '''
+''' + '\n'.join(examples[:3]) + '''
 assert result['status'] == 'complete', result
 assert result['sampling']['tilted_categories'] == 1, result
 assert 0 < result['weights']['ess'] <= 1000, result
 assert abs(result['estimates']['error'] - .001) < 4 * result['standard_errors']['error'], result
 assert abs(result['estimates']['acceptance'] - 1) < 4 * result['standard_errors']['acceptance'], result
 ''')
+        self.python(examples[3] + '''
+assert result['status'] == 'complete', result
+assert result['completed'] == 10000, result
+assert result['workers'] == 4, result
+''')
         binary = Path(INSTALLED_PYTHON).parent / 'magna'
         env = dict(os.environ); env.pop('PYTHONPATH', None)
-        process = subprocess.run([str(binary), 'run', 'physical.magna', '--task', 'task.json',
-            '--sampling', 'sampling.json', '--shots', '64', '--seed', '7', '--json'],
-            cwd=self.directory, env=env, text=True, capture_output=True, timeout=60)
-        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
-        result = json.loads(process.stdout)
-        self.assertEqual(result['completed'], 64)
-        self.assertEqual(result['sampling']['method'], 'importance')
+        for extra_args, workers in (([], 1), (['--workers', '4'], 4)):
+            with self.subTest(workers=workers):
+                process = subprocess.run([str(binary), 'run', 'physical.magna', '--task', 'task.json',
+                    '--sampling', 'sampling.json', '--shots', '64', '--seed', '7', '--json', *extra_args],
+                    cwd=self.directory, env=env, text=True, capture_output=True, timeout=60)
+                self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+                result = json.loads(process.stdout)
+                self.assertEqual(result['completed'], 64)
+                self.assertEqual(result['sampling']['method'], 'importance')
+                self.assertEqual(result['workers'], workers)
 
     def test_installed_low_weight_enumeration(self):
         self.python("""
