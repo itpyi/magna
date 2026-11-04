@@ -237,7 +237,9 @@ struct OperationBoundarySampler {
         out.acceptance = total(events, bits);
         if(real_sign(out.acceptance) < 0 || real_sign(out.mass + out.acceptance * Scalar(-1)) < 0)
             throw std::runtime_error("postselection mass outside history mass");
-        for(const auto& [x, z] : task.observables) out.moments.push_back(total(events, bits, x, z));
+        if(out.acceptance.zero()) out.moments.resize(task.observables.size());
+        else
+            for(const auto& [x, z] : task.observables) out.moments.push_back(total(events, bits, x, z));
         for(const auto& [name, bit] : out.reports)
             out.truth.push_back({name, bit ^ int(validated.flip_word.bit(layout.record_index.at(name)))});
         out.controls = resolved.size();

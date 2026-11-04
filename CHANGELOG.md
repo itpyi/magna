@@ -16,6 +16,7 @@ Notable changes to magna, newest first.
 - Python decoder functions are called with less overhead, so sampling with a fast decoder is faster.
 - Each draw repeats less of the work fixed by the circuit, so sampling is faster,
   most of all when decoders read many measurement records.
+- Sampling is faster when many draws are rejected.
 
 ### Fixed
 
