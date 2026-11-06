@@ -85,14 +85,17 @@ The pull request template asks for the following.
 2. **Review summary.** CI also compares the description with the changed files and lists anything left open,
    such as a file outside the declared scope. It never blocks a pull request, and editing the description reruns it.
    To read it, open **Details** next to the *Review summary* check, then **Summary**.
-3. **Scope and code.** A maintainer checks that each changed file serves the stated purpose, then reviews the code.
-4. **Benchmarks.** For a change to the C++ kernel or to sampling, the maintainers run a fixed benchmark suite,
+3. **Seeded results.** For a change to the package, CI runs fixed tasks with the same seeds on `main` and on the
+   pull request and lists every field that differs. It never blocks a pull request, and it warns only if
+   the description says seeded results are unchanged. Read it the same way, under the *Seeded results* check.
+4. **Scope and code.** A maintainer checks that each changed file serves the stated purpose, then reviews the code.
+5. **Benchmarks.** For a change to the C++ kernel or to sampling, the maintainers run a fixed benchmark suite,
    kept outside this repository, on a fixed machine, comparing `main` with the pull request.
    Every case that becomes 5% or more slower, or needs 5% or more additional peak memory,
    is reported in the pull request, and the maintainers decide whether the change is worth it.
    The suite does not run the CUDA sampler, so a change to it reports GPU measurements in the pull request.
    Benchmarks you run yourself are welcome as additional information.
-5. **Merge.** Pull requests are squash-merged, so each becomes one commit on `main`.
+6. **Merge.** Pull requests are squash-merged, so each becomes one commit on `main`.
    [RELEASING.md](RELEASING.md) explains how merged changes become a release.
 
 ## License
