@@ -1,0 +1,20 @@
+name: Review
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, reopened, synchronize]
+permissions:
+  contents: read
+concurrency:
+  group: review-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  summary:
+    name: Review summary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Compare the pull request with its description
+        run: python3 scripts/review_summary.py --base HEAD^1 --head HEAD^2
