@@ -82,13 +82,17 @@ The pull request template asks for the following.
 
 1. **CI.** Every push builds and tests on Linux and macOS with Python 3.11 and 3.14,
    and tests an installed wheel. A first-time contributor's CI starts after a maintainer approves it.
-2. **Scope and code.** A maintainer checks that each changed file serves the stated purpose, then reviews the code.
-3. **Benchmarks.** For a change to the C++ kernel or to sampling, the maintainers run a fixed benchmark suite,
+2. **Review summary.** CI also compares the description with the changed files and lists anything left open,
+   such as a file outside the declared scope. It never blocks a pull request, and editing the description reruns it.
+   To read it, open **Details** next to the *Review summary* check, then **Summary**.
+3. **Scope and code.** A maintainer checks that each changed file serves the stated purpose, then reviews the code.
+4. **Benchmarks.** For a change to the C++ kernel or to sampling, the maintainers run a fixed benchmark suite,
    kept outside this repository, on a fixed machine, comparing `main` with the pull request.
    Every case that becomes 5% or more slower, or needs 5% or more additional peak memory,
    is reported in the pull request, and the maintainers decide whether the change is worth it.
+   The suite does not run the CUDA sampler, so a change to it reports GPU measurements in the pull request.
    Benchmarks you run yourself are welcome as additional information.
-4. **Merge.** Pull requests are squash-merged, so each becomes one commit on `main`.
+5. **Merge.** Pull requests are squash-merged, so each becomes one commit on `main`.
    [RELEASING.md](RELEASING.md) explains how merged changes become a release.
 
 ## License
