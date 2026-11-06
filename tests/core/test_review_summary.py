@@ -101,12 +101,35 @@ class ReviewSummaryTests(unittest.TestCase):
         body = body.replace(BOXES, scope)
         self.assertEqual(open_items([RUNTIME, 'docs/software/run.md', *ROUTINE], body), [])
 
+    def test_format_change_needs_the_manual(self):
+        changed = description(interface='- Public interface: unchanged\n- Circuit or task file format: changed\n')
+        self.assertTrue(any('docs/software/' in item for item in open_items([RUNTIME, *ROUTINE], changed)))
+        unchanged = description(interface='- Public interface: unchanged\n- Circuit and task formats: unchanged.\n')
+        self.assertEqual(open_items([RUNTIME, *ROUTINE], unchanged), [])
+
     def test_package_change_needs_a_test(self):
         self.assertTrue(any('`tests/`' in item for item in open_items([RUNTIME, 'CHANGELOG.md'], description())))
 
-    def test_kernel_note_leaves_out_the_cuda_sampler(self):
-        self.assertTrue(any('benchmark suite' in note for note in maintainer_notes([RUNTIME], 0, [])))
-        self.assertEqual(maintainer_notes([CUDA, 'core/magna/cuda.py'], 0, []), [])
+    def test_kernel_change_needs_the_benchmark_suite(self):
+        self.assertEqual(maintainer_notes([RUNTIME], 0, []),
+                         ['This changes the C++ kernel, so it needs the benchmark suite before merging.'])
+
+    def test_python_change_may_need_the_benchmark_suite(self):
+        notes = maintainer_notes(['core/magna/boundary_sampling.py'], 0, [])
+        self.assertEqual(len(notes), 1)
+        self.assertIn('if that code runs during sampling', notes[0])
+
+    def test_cuda_change_needs_gpu_measurements(self):
+        for path in (CUDA, 'core/magna/cuda_sampler.py', 'core/magna/_cuda_noise.py'):
+            notes = maintainer_notes([path], 0, [])
+            self.assertEqual(len(notes), 1)
+            self.assertIn('GPU measurements', notes[0])
+
+    def test_kernel_and_cuda_change_gets_both_notes(self):
+        self.assertEqual(len(maintainer_notes([RUNTIME, CUDA], 0, [])), 2)
+
+    def test_tests_and_documents_need_no_note(self):
+        self.assertEqual(maintainer_notes(ROUTINE, 0, []), [])
 
     def test_note_names_files_changed_on_both_sides(self):
         note = maintainer_notes(['README.md'], 2, ['README.md'])[0]

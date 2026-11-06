@@ -90,6 +90,7 @@ The pull request template asks for the following.
    kept outside this repository, on a fixed machine, comparing `main` with the pull request.
    Every case that becomes 5% or more slower, or needs 5% or more additional peak memory,
    is reported in the pull request, and the maintainers decide whether the change is worth it.
+   The suite does not run the CUDA sampler, so a change to it reports GPU measurements in the pull request.
    Benchmarks you run yourself are welcome as additional information.
 5. **Merge.** Pull requests are squash-merged, so each becomes one commit on `main`.
    [RELEASING.md](RELEASING.md) explains how merged changes become a release.

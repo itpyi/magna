@@ -91,9 +91,10 @@ def review(files, body, parts):
     interface = section(body, 'Interface, format and results') or ''
     if re.search(r'unchanged / changed|updated / not needed', interface):
         items.append('Choose one answer on each line under "Interface, format and results".')
-    if (re.search(r'public interface[^:\n]*:\s*changed', interface, re.I)
+    if (re.search(r'(public interface|circuit (or|and) task)[^:\n]*:\s*changed', interface, re.I)
             and not any(f.startswith('docs/software/') for f in files)):
-        items.append('The description says the public interface changes, so update the manual in `docs/software/`.')
+        items.append('The description says the public interface or a file format changes, '
+                     'so update the manual in `docs/software/`.')
     if 'CHANGELOG.md' not in files and not re.search(r'CHANGELOG[^\n]*not needed', body):
         items.append('Add a line under "Unreleased" in `CHANGELOG.md`, or answer "not needed" in the description.')
     if any(f.startswith('core/') for f in files) and not any(f.startswith('tests/') for f in files):
@@ -118,9 +119,15 @@ def count(number, noun):
 
 def maintainer_notes(files, behind, overlap):
     """What a maintainer would otherwise work out by hand before reviewing."""
+    cuda = [f for f in files if f.startswith('core/magna/native/cuda/') or matches(f, 'core/magna/*cuda*.py')]
+    others = [f for f in files if f not in cuda]
     notes = []
-    if any(f.startswith('core/magna/native/') and not f.startswith('core/magna/native/cuda/') for f in files):
+    if any(f.startswith('core/magna/native/') for f in others):
         notes.append('This changes the C++ kernel, so it needs the benchmark suite before merging.')
+    elif any(matches(f, 'core/magna/*.py') for f in others):
+        notes.append('This changes the Python package, so it needs the benchmark suite if that code runs during sampling.')
+    if cuda:
+        notes.append('This changes the CUDA sampler, which the benchmark suite does not run, so it needs GPU measurements.')
     if behind:
         note = f'`main` has {count(behind, "newer commit")}.'
         if overlap:
