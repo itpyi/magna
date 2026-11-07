@@ -92,14 +92,15 @@ def short(value):
 
 
 def describe(name, found):
-    """List the first changes of one task, estimates first because the other results follow from them."""
+    """Return one task's first changes and all of them, estimates first because the rest follow from them."""
     changes = [change for key in CATEGORIES for change in found[key]]
     changes.sort(key=lambda change: not change[0].startswith('estimates.'))
-    lines = [f'{name}: `{path}` {short(before)} → {short(after)}' for path, before, after in changes[:SHOWN]]
-    return lines + ([f'{name}: {len(changes) - SHOWN} more'] if len(changes) > SHOWN else [])
+    first = [f'{name}: `{path}` {short(before)} → {short(after)}' for path, before, after in changes[:SHOWN]]
+    more = [f'{name}: {len(changes) - SHOWN} more'] if len(changes) > SHOWN else []
+    return first + more, [f'{name}: `{path}` {before} → {after}' for path, before, after in changes]
 
 
-def render(rows, details, problems, shots):
+def render(rows, details, complete, problems, shots):
     lines = ['## Seeded results', '',
              f'`main` and this pull request ran {len(rows)} tasks with the same seeds, {shots} draws each.', '',
              '| Task | ' + ' | '.join(CATEGORIES) + ' |', '|---|' + '---|' * len(CATEGORIES)]
@@ -107,6 +108,9 @@ def render(rows, details, problems, shots):
     if details:
         lines += ['', '### Differences', '']
         lines += [f'- {detail}' for detail in details]
+        lines += ['', '<details><summary>Every difference</summary>', '']
+        lines += [f'- {change}' for change in complete]
+        lines += ['', '</details>']
     lines += ['', '### Open items', '']
     lines += [f'- {problem}' for problem in problems] or ['Nothing open.']
     return '\n'.join(lines)
@@ -114,7 +118,7 @@ def render(rows, details, problems, shots):
 
 def review(base, head, body, shots):
     """Run every case on both checkouts, always from the same copy of the base task files."""
-    rows, details, problems, moved = [], [], [], []
+    rows, details, complete, problems, moved = [], [], [], [], []
     with tempfile.TemporaryDirectory() as temporary:
         temporary = Path(temporary)
         for index, (name, folder, options) in enumerate(CASES):
@@ -130,10 +134,12 @@ def review(base, head, body, shots):
             found = compare(old, new)
             rows.append((name, *[f'{len(found[c])} changed' if found[c] else 'same' for c in CATEGORIES]))
             moved += [name] if found['Results'] else []
-            details += describe(name, found)
+            first, every = describe(name, found)
+            details += first
+            complete += every
     if moved and says_unchanged(body):
         problems.append('The description says seeded results are unchanged, but they differ for: ' + ', '.join(moved))
-    return rows, details, problems
+    return rows, details, complete, problems
 
 
 def main():
@@ -150,8 +156,8 @@ def main():
     elif event:
         body = json.loads(Path(event).read_text())['pull_request']['body']
 
-    rows, details, problems = review(args.base.resolve(), args.head.resolve(), body, args.shots)
-    text = render(rows, details, problems, args.shots)
+    rows, details, complete, problems = review(args.base.resolve(), args.head.resolve(), body, args.shots)
+    text = render(rows, details, complete, problems, args.shots)
     print(text)
     if os.environ.get('GITHUB_STEP_SUMMARY'):
         with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:

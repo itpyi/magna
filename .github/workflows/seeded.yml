@@ -2,6 +2,7 @@ name: Seeded results
 on:
   pull_request:
     branches: [main]
+    types: [opened, edited, reopened, synchronize]
     paths:
       - 'core/**'
       - 'setup.py'

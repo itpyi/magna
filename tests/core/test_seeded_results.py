@@ -62,7 +62,7 @@ class SeededResultsTests(unittest.TestCase):
 
     def test_changed_result_contradicts_an_unchanged_answer(self):
         with fake_run(({'estimates': {'error': 0.1}}, None), ({'estimates': {'error': 0.2}}, None)):
-            rows, details, problems = review(ROOT, ROOT, UNCHANGED, 8)
+            rows, details, _, problems = review(ROOT, ROOT, UNCHANGED, 8)
         self.assertEqual(rows[0][1:], ('1 changed', 'same', 'same'))
         self.assertIn('`estimates.error` 0.1 → 0.2', details[0])
         self.assertEqual(len(problems), 1)
@@ -70,13 +70,13 @@ class SeededResultsTests(unittest.TestCase):
 
     def test_declared_change_is_listed_without_a_problem(self):
         with fake_run(({'estimates': {'error': 0.1}}, None), ({'estimates': {'error': 0.2}}, None)):
-            rows, details, problems = review(ROOT, ROOT, CHANGED, 8)
+            rows, details, _, problems = review(ROOT, ROOT, CHANGED, 8)
         self.assertEqual(len(details), len(CASES))
         self.assertEqual(problems, [])
 
     def test_counter_change_is_no_contradiction(self):
         with fake_run(({'resources': {'queries': 2}}, None), ({'resources': {'queries': 1}}, None)):
-            rows, details, problems = review(ROOT, ROOT, UNCHANGED, 8)
+            rows, _, _, problems = review(ROOT, ROOT, UNCHANGED, 8)
         self.assertEqual(rows[0][1:], ('same', '1 changed', 'same'))
         self.assertEqual(problems, [])
 
@@ -84,12 +84,14 @@ class SeededResultsTests(unittest.TestCase):
         old = {'estimates': {f'value{i}': 0 for i in range(8)}}
         new = {'estimates': {f'value{i}': 1 for i in range(8)}}
         with fake_run((old, None), (new, None)):
-            details = review(ROOT, ROOT, CHANGED, 8)[1]
+            _, details, complete, _ = review(ROOT, ROOT, CHANGED, 8)
         self.assertTrue(details[3].endswith('5 more'))
+        self.assertEqual(len(complete), 8 * len(CASES))
+        self.assertIn('`estimates.value7` 0 → 1', complete[7])
 
     def test_estimates_are_listed_first(self):
         found = compare({'efficiency': {'kappa': 1}, 'estimates': {'error': 1}}, {'efficiency': {'kappa': 2}, 'estimates': {'error': 2}})
-        self.assertIn('estimates.error', describe('dk', found)[0])
+        self.assertIn('estimates.error', describe('dk', found)[0][0])
 
     def test_values_keep_full_precision_but_not_whole_fingerprints(self):
         self.assertEqual(short(0.8805541992187513), '0.8805541992187513')
@@ -97,19 +99,27 @@ class SeededResultsTests(unittest.TestCase):
 
     def test_task_that_cannot_run_is_reported(self):
         with fake_run(({}, None), (None, 'ValueError: broken')):
-            rows, details, problems = review(ROOT, ROOT, UNCHANGED, 8)
+            rows, _, _, problems = review(ROOT, ROOT, UNCHANGED, 8)
         self.assertEqual(rows[0][1:], ('did not run',) * 3)
         self.assertIn('did not run on this pull request: ValueError: broken', problems[0])
 
     def test_render_says_when_nothing_is_open(self):
-        text = render([('dk', 'same', 'same', 'same')], [], [], 8)
+        text = render([('dk', 'same', 'same', 'same')], [], [], [], 8)
         self.assertIn('Nothing open.', text)
         self.assertNotIn('### Differences', text)
+        self.assertNotIn('<details>', text)
+
+    def test_render_keeps_every_difference_with_full_values(self):
+        value = 'a' * 64
+        found = compare({'fingerprints': {'task': value}}, {'fingerprints': {'task': 'b'}})
+        text = render([('dk', 'same', 'same', '1 changed')], *describe('dk', found), [], 8)
+        self.assertIn('<details><summary>Every difference</summary>', text)
+        self.assertIn(f'{value} → b', text)
 
     def test_checkout_matches_itself(self):
-        rows, details, problems = review(ROOT, ROOT, UNCHANGED, 64)
+        rows, details, complete, problems = review(ROOT, ROOT, UNCHANGED, 64)
         self.assertEqual({row[1:] for row in rows}, {('same', 'same', 'same')})
-        self.assertEqual((details, problems), ([], []))
+        self.assertEqual((details, complete, problems), ([], [], []))
 
 
 if __name__ == '__main__':
