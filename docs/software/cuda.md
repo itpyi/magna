@@ -2,10 +2,10 @@
 
 The experimental CUDA sampler runs physical and importance sampling of supported tasks on an NVIDIA GPU.
 It reports the same acceptance, error and conditional error as `run`, with every per-draw
-probability still exact, and draws hundreds of times faster than the CPU sampler.
+probability still exact. Speed depends on the task and the time spent in its decoder.
 Use it when a task needs more draws than the CPU sampler completes in the time you have.
 
-On an RTX 4090 D, 262,144 draws of four example tasks took the following times,
+On an RTX 4090 D, 262,144 draws of four example tasks without decoder calls took the following times,
 compared with `run` on one core of a Ryzen 9 9950X (median of three runs, batch size 65,536,
 first-call compilation excluded):
 
@@ -48,29 +48,33 @@ result = sampler.run(1_048_576, seed=7)
 print(result["estimates"], result["standard_errors"])
 ```
 
-`CudaSampler.run(shots, *, seed=0, offset=0, batch_size=65536)` attempts `shots` draws.
+`CudaSampler.run(shots, *, seed=0, offset=0, batch_size=None)` attempts `shots` draws.
 Draws are numbered from `offset`, so `run(n, seed=7, offset=n)` continues a run of `n` draws with the next `n`.
 
 The GPU processes the draws in batches of at most `batch_size` (up to 1,000,000);
-larger batches use more GPU memory.
+`None` chooses 4096 for decoder tasks and 65536 otherwise. Larger batches use more memory.
+For a fixed decoder task, host and GPU memory grow approximately with batch size;
+wider decoder sites need more memory. Choose a smaller batch when memory is limited.
 
 The first call also compiles the GPU code, so reuse one sampler for repeated runs.
 After changing the circuit, task, sampling or options, compile again and create a new sampler.
 Use a sampler from one thread at a time.
 
+Tasks with registered Python decoders use the same `controllers` argument to `compile_circuit`.
+The decoders run on the CPU. Decoder tasks support `affine_support`, selected through
+the compilation option `history_sampler`, as described in [History samplers](sampling.md#history-samplers).
+
 ## Supported tasks
 
 The CUDA sampler supports a task when:
 
-- it samples no measurement history: `compilation.sampled_history` in the
-  [inspect report](sampling.md#history-samplers) is false. Decoder calls,
-  [conditional noise](noise.md#conditional-noise) and `sample_records` all sample a history;
+- its noise is unconditional and `sample_records` is empty;
 - it has no observables;
 - it uses physical sampling, or importance sampling in which every scaled noise location
   has the same total error probability and there are between 2 and 512 of them.
   A noise location is one target qubit or qubit pair of a noise instruction, one correlated-error chain,
   or one noisy measurement;
-- if the ideal state uses postselection, its postselection probability is a power of two.
+- for tasks without decoder calls, ideal-state postselection has a power-of-two probability.
 
 Affine feedback, correlated errors, Pauli channels and measurement report errors are all supported.
 For an unsupported task, `CudaSampler(compiled)` raises `ValueError` with the reason.
@@ -81,7 +85,7 @@ The example tasks run as follows:
 |---|---|---|
 | `bh2`–`bh100`, `-S` and `-T` | Yes | Yes |
 | `color3`, `color5`, `rp2-d3`, `rp2-d3-S`, `rp2-d5`, `rp2-d5-S`, `wg-S`, `wg-T` | Yes | No: more than 512 noise locations |
-| `dk`, `logical-distillation`, `tqd3`, `tqd4`, `tqd5` | No: decoder calls | No |
+| `dk`, `logical-distillation`, `tqd3`, `tqd4`, `tqd5` | Yes | Subject to the noise-location limits above |
 
 ## Results
 
@@ -91,7 +95,8 @@ The example tasks run as follows:
 |---|---|
 | `status` | `complete` |
 | `requested`, `completed` | Number of draws |
-| `seed`, `offset`, `batch_size` | The arguments of `run` |
+| `seed`, `offset` | The arguments of `run` |
+| `batch_size` | The effective batch size after resolving `None` |
 | `estimates` | `acceptance`, `error` and `conditional_error` |
 | `standard_errors` | Standard errors of the same three estimates |
 | `timings.sampling_seconds` | Time spent sampling |
