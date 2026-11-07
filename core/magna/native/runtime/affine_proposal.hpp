@@ -110,7 +110,7 @@ struct SamplingNetworkSession {
     size_t resource_constructions = 0, coordinate_constructions = 0;
     bool zero = false;
     SamplingNetworkSession(const SamplingNetworkPlan& prepared, const BoundaryTracePlan& plan, const Bits& sector,
-            const ReferenceHistoryLayout* layout = nullptr)
+            const ReferenceHistoryLayout* layout = nullptr, const PhaseResource* local_resource = nullptr)
         : prepared(prepared), plan(plan), committed(*prepared.parent, sector, layout) {
         common.exponents = plan.compiled.plan.magic;
         const auto& n = *prepared.parent->reference;
@@ -127,7 +127,7 @@ struct SamplingNetworkSession {
         if(!prepared.certificate) return;
         if(prepared.contraction) quadratic = prepared.contraction->pulled_reference;
         else {
-            resource = prepared.certificate->reference;
+            resource = local_resource ? *local_resource : prepared.certificate->reference;
             quadratic = {0, resource->quotient.linear, resource->quotient.upper};
             tensor = n.restricted.clifford;
             tensor.boundary.resize(n.boundary.keep.size());

@@ -53,6 +53,7 @@ Options of individual commands:
 | `--sampling FILE` | validate, inspect, run, compare-samplers | Noise proposal, `{"method": "importance", "proposal_scale": "10"}` |
 | `--history-sampler NAME` | validate, inspect, run | `affine_support` (default) or `exact_marginal`; overrides the options file |
 | `--shots N` | run | Number of draws (default 1) |
+| `--workers N` | run | Number of sampling workers (positive integer, default 1) |
 | `--seed N` | run, compare-samplers | Random seed (default 0) |
 | `--progress-every N` | run | Print progress and kappa every N completed draws |
 | `--pilot-shots N` | compare-samplers | Draws per history sampler (at least 2); required |
@@ -72,6 +73,7 @@ Give the ideal state and the recovery in one place only.
 magna validate factory.magna
 magna inspect factory.magna --task task.json
 magna run factory.magna --task task.json --shots 1000 --seed 7 --output result.json
+magna run factory.magna --task task.json --shots 10000 --workers 4 --output result.json
 magna run physical.magna --ideal-state ideal.magna --recovery recovery.magna --controllers controllers.json --task task.json --shots 1000
 magna run physical.magna --task task.json --sampling sampling.json --shots 2000 --seed 7 --json
 magna enumerate physical.magna --task task.json --max-weight 2
