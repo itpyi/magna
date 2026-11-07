@@ -1,0 +1,40 @@
+name: Seeded results
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, reopened, synchronize]
+    paths:
+      - 'core/**'
+      - 'setup.py'
+      - 'pyproject.toml'
+      - 'scripts/build_native_core.py'
+      - 'scripts/native_sources.py'
+      - 'scripts/run_task.py'
+      - 'scripts/seeded_results.py'
+      - '.github/workflows/seeded.yml'
+permissions:
+  contents: read
+concurrency:
+  group: seeded-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  compare:
+    name: Seeded results
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Build the pull request
+        run: ./scripts/python.sh scripts/build_native_core.py
+      - name: Build main
+        run: |
+          git worktree add "$RUNNER_TEMP/main" HEAD^1
+          cd "$RUNNER_TEMP/main"
+          ./scripts/python.sh scripts/build_native_core.py
+      - name: Compare main with the pull request
+        run: python scripts/seeded_results.py --base "$RUNNER_TEMP/main"
