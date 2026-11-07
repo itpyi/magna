@@ -132,14 +132,13 @@ def _close_workers(workers, owner, abort=False):
 
 
 class MultiGpuCudaSampler:
-    """Reuse independent CUDA samplers on explicitly selected local devices.
+    """Sample a compiled task on several NVIDIA GPUs of one host.
 
-    Create this object inside ``if __name__ == '__main__':`` in a script and
-    use it as a context manager. Workers use ``spawn`` even on Linux. Device
-    IDs are logical IDs after CUDA_VISIBLE_DEVICES filtering. No CUDA context
-    is created in the parent. ``timeout`` bounds each run including startup;
-    None disables that deadline. Failure closes the whole pool and raises,
-    without returning a misleading partial estimate.
+    Create it under ``if __name__ == '__main__':`` in a script and use it in
+    a ``with`` block. ``devices`` lists the GPUs, numbered as CUDA sees them.
+    ``timeout`` limits each run in seconds, including startup; None sets no
+    limit. If a run times out or a GPU fails, ``run`` raises an error and the
+    sampler closes.
     """
     def __init__(self, compiled, *, devices, timeout=None):
         circuits = [compiled._source_circuit]
@@ -228,7 +227,7 @@ class MultiGpuCudaSampler:
                     raise RuntimeError(f'GPU {device} rebuilt CUDA plan differs from the parent')
 
     def run(self, shots, *, seed=0, offset=0, batch_size=65536):
-        """Sample disjoint draw ranges, then merge centered statistics in range order."""
+        """Attempt ``shots`` draws, divided evenly among the GPUs."""
         self._check_owner()
         if not self._lock.acquire(blocking=False):
             raise RuntimeError('multi-GPU sampler is already in use')

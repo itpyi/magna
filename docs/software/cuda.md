@@ -111,8 +111,11 @@ CPU and GPU runs with the same seed draw different faults.
 
 ## Multiple GPUs on one host
 
-Use `MultiGpuCudaSampler` for long sampling jobs on explicitly selected GPUs.
-Tasks with external decoder calls are not supported. Save this as a Python script:
+`MultiGpuCudaSampler` divides a run among several GPUs on one machine.
+It supports the same tasks as `CudaSampler`. Use it when a run takes too long on one GPU.
+
+Write the code in a script, under `if __name__ == "__main__":`.
+Each GPU gets its own Python process, and that process imports your script when it starts.
 
 ```python
 from magna import compile_circuit
@@ -128,18 +131,29 @@ if __name__ == "__main__":
         print(result["estimates"], result["standard_errors"])
 ```
 
-Select GPUs allocated to your job; IDs are logical IDs after `CUDA_VISIBLE_DEVICES` filtering.
-The main guard is required because workers start with Python's `spawn` method.
-Repeated calls reuse the workers. Use the context manager or call `close()` when finished.
-Workers verify that their rebuilt plans match the parent's before sampling.
+`devices` lists the GPUs to use, numbered as CUDA sees them:
+with `CUDA_VISIBLE_DEVICES=2,3`, use `devices=(0, 1)`.
 
-`run(shots, *, seed=0, offset=0, batch_size=65536)` takes a total shot count across all devices.
-The batch size is per device, with the same 1,000,000 limit as the single-GPU sampler.
-Results add `devices`, `shards` (draw intervals and elapsed times), and
-`timings.total_seconds`, `timings.startup_seconds`, and `timings.sampling_seconds`.
-Shard times overlap. Changing device count preserves fault draws, but the last digits
-of estimates and standard errors can differ because reduction order changes.
+`run` takes the same arguments as `CudaSampler.run`.
+`shots` is the total number of draws, divided evenly among the GPUs, and `batch_size` applies to each GPU.
+The first run takes longer, because each process compiles the task and the GPU code.
+Later runs reuse the processes. Leaving the `with` block, or calling `close()`, stops them.
 
-The optional constructor argument `timeout` limits each run, including worker startup.
-A worker failure or timeout closes the pool and raises; create a new sampler before retrying.
-Worker cleanup may add time beyond the timeout.
+The same seed and offset give the same faults on any number of GPUs.
+As with batches, the estimates can still differ in the last digits.
+
+The result has the fields of `CudaSampler.run`, plus these:
+
+| Field | Meaning |
+|---|---|
+| `devices` | The GPUs given to the sampler |
+| `shards` | One entry for each GPU used, with its `device`, `offset`, `shots` and `sampling_seconds` |
+| `timings.total_seconds` | Time for the whole run |
+| `timings.startup_seconds` | Time spent starting the processes |
+
+`timings.sampling_seconds` covers all GPUs together. The GPUs run at the same time,
+so the times in `shards` do not add up to it.
+
+To limit how long a run can take, pass `timeout` in seconds:
+`MultiGpuCudaSampler(compiled, devices=(0, 1), timeout=600)`. The limit includes the first run's compilation.
+If a run times out or a GPU fails, `run` raises an error and the sampler closes; create a new one to try again.
