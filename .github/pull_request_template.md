@@ -18,7 +18,7 @@ Parts of the repository this change is meant to touch:
 - [ ] Bindings `core/magna/native/bindings/`
 - [ ] Python interface `core/magna/*.py`, `core/magna/data/`
 - [ ] User manual `docs/`, `mkdocs.yml`
-- [ ] Project documents `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `RELEASING.md`, `LICENSE`, `THIRD_PARTY_NOTICES.md`
+- [ ] Project documents `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `RELEASING.md`, `AGENTS.md`, `LICENSE`, `THIRD_PARTY_NOTICES.md`
 - [ ] Tests `tests/`
 - [ ] Examples `examples/`
 - [ ] Scripts, packaging and CI `scripts/`, `setup.py`, `pyproject.toml`, `MANIFEST.in`, `requirements.txt`, `.gitignore`, `.github/`

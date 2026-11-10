@@ -93,6 +93,7 @@ The pull request template asks for the following.
   (normally the pull request's final commit), the machine and the command that reproduces it.
 - **AI tools (optional).** You may say which AI tools helped. Either way you are responsible for every line
   and should be able to answer review questions about it.
+  If a coding agent works on magna for you, point it to [AGENTS.md](AGENTS.md).
 
 ## Review
 
