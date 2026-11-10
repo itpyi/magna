@@ -77,8 +77,13 @@ struct ScientificAccumulator {
     std::vector<std::optional<int64_t>> top;
     std::vector<int64_t> scales;
     FileStatistics stats;
+    // Reuse preparation storage without changing committed statistics until the
+    // entire next row has been checked.
+    std::vector<std::optional<int64_t>> next_top;
+    std::vector<int64_t> next_scales;
+    FileContribution next_value;
     static long double rescale(long double value, int64_t shift) {
-        return shift < std::numeric_limits<int>::min() ? 0 : std::ldexp(value, int(shift));
+        return shift == 0 ? value : shift < std::numeric_limits<int>::min() ? 0 : std::ldexp(value, int(shift));
     }
     void add(const std::vector<std::optional<ScientificValue>>& row) {
         if(count == 0) {
@@ -87,8 +92,9 @@ struct ScientificAccumulator {
         if(!row[0]) throw std::invalid_argument("acceptance contribution required");
         for(size_t j = 2; j < row.size(); j++)
             if(!row[j]) throw std::invalid_argument("moment contribution required");
-        auto next_top = count ? top : std::vector<std::optional<int64_t>>(row.size());
-        std::vector<int64_t> next_scales(row.size(), 0);
+        if(count) next_top = top;
+        else next_top.assign(row.size(), std::nullopt);
+        next_scales.assign(row.size(), 0);
         for(size_t j = 0; j < row.size(); j++) {
             if(row[j] && row[j]->first)
                 next_top[j] = next_top[j] ? std::max(*next_top[j], row[j]->second) : row[j]->second;
@@ -99,8 +105,12 @@ struct ScientificAccumulator {
             auto delta = row[j]->second - next_scales[j];
             return delta < std::numeric_limits<int>::min() ? 0. : std::ldexp(row[j]->first, int(delta));
         };
-        FileContribution value{convert(0), bool(row[1]), convert(1), {}};
-        for(size_t j = 2; j < row.size(); j++) value.moments.push_back(convert(j));
+        auto& value = next_value;
+        value.acceptance = convert(0);
+        value.has_error = bool(row[1]);
+        value.error = convert(1);
+        value.moments.resize(row.size() - 2);
+        for(size_t j = 2; j < row.size(); j++) value.moments[j - 2] = convert(j);
         // Reject a bad row before rescaling, so a failed draw leaves the partial statistics intact.
         bool finite = std::isfinite(value.acceptance) && std::isfinite(value.error);
         for(auto moment : value.moments) finite = finite && std::isfinite(moment);
@@ -121,8 +131,8 @@ struct ScientificAccumulator {
             }
         }
         stats.add(value);
-        top = std::move(next_top);
-        scales = std::move(next_scales);
+        top.swap(next_top);
+        scales.swap(next_scales);
         count++;
     }
     ScientificSummary summary() const {

@@ -28,9 +28,13 @@ Add `"max_seconds": 600`, for example, to bound the wall-clock time of a run.
 
 Integer limits must be nonnegative (`max_plans` and `max_queries` at least one);
 `max_seconds` is a positive number. Unknown option names are rejected.
-A running query is not interrupted, so a run can overshoot `max_seconds` by one query.
+A running query is not interrupted, so a run can overshoot `max_seconds` until its
+active queries finish (up to one per worker in a parallel run).
 `max_queries` and `max_seconds` count from the start of each `run` call; when `run` also compiles,
 the count includes that preparation.
+With [parallel sampling](sampling.md#parallel-sampling), `max_queries` and `max_seconds`
+apply to the whole run. Other resource limits apply separately to each worker;
+they do not cap total memory use.
 
 ## Reading the resource report
 
@@ -60,6 +64,9 @@ so the resource report does not change from draw to draw.
 | Invalid circuit, task or configuration, including a decoder name without a binding or a binding that cannot be imported | An exception before any work (`CircuitSyntaxError` or `ValueError`); the CLI exits with status 2 |
 
 The simulator never falls back to an approximation when a limit is hit.
+In a parallel run, later draws already in progress may finish after an earlier
+draw fails. Their results are discarded, but their work still counts toward
+`max_queries` and the reported query counts and timings.
 Raise the limit, simplify the target preparation, or reduce the number of output qubits.
 
 `validate` checks syntax and configuration without preparing decompositions;
