@@ -2,7 +2,9 @@
 
 ## Purpose
 
-<!-- What does this pull request change, and why? Link the issue if there is one. -->
+<!-- What does this pull request change, and why?
+Link the agreed issue by writing "Closes #" and its number. A change to the kernel, sampling, the public interface
+or a file format, and a new feature, need one; CONTRIBUTING.md explains which changes go straight to a pull request. -->
 
 ## Scope
 

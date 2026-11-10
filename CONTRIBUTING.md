@@ -10,8 +10,24 @@ Report a bug with the circuit file, task, command and output that show it, cut d
 together with the magna version (`pip show magna-quantum`, or the commit you built),
 your Python version and your operating system.
 Questions and feature ideas are welcome as issues too.
-For a larger change, especially a new kernel feature, you may open an issue first to discuss the design.
-This is optional, but it can save rework.
+
+## Agree on a plan before a larger change
+
+Open an issue and agree on a plan with a maintainer before you write a pull request that
+
+- changes the C++ kernel or sampling,
+- changes the public interface (Python API, command line, result fields) or a circuit or task file format, or
+- adds a feature.
+
+The issue describes the problem the change solves, what it will and will not cover, and how we will tell that it works.
+For an optimization, name the cases you will measure, the simplest existing way to get the same result,
+and the improvement over it that would make the change worthwhile.
+The plan is agreed once a maintainer accepts it on the issue; then link the issue from your pull request.
+A pull request in these areas without an agreed plan is converted to a draft until one exists, and nothing in it is lost.
+
+Other changes can go straight to a pull request: documentation, tests, examples, CI and tooling,
+and bug fixes that come with a test that fails without the fix.
+If you are not sure which kind your change is, open the issue first.
 
 ## Build and test
 
@@ -66,7 +82,7 @@ Changes to the package keep to these rules.
 Keep one pull request to one change: a feature, an optimization and a refactor are three pull requests.
 The pull request template asks for the following.
 
-- **Purpose.** What changes and why.
+- **Purpose.** What changes and why, with a link to the agreed issue when the change needs one.
 - **Scope.** The parts of the repository the change is meant to touch, and a reason for each changed file outside them.
   Reviewers check every changed file against this.
 - **Interface, format and results.** Whether the public interface, the file formats or any numerical result changes.
@@ -88,7 +104,8 @@ The pull request template asks for the following.
 3. **Seeded results.** For a change to the package, CI runs fixed tasks with the same seeds on `main` and on the
    pull request and lists every field that differs. It never blocks a pull request, and it warns only if
    the description says seeded results are unchanged. Read it the same way, under the *Seeded results* check.
-4. **Scope and code.** A maintainer checks that each changed file serves the stated purpose, then reviews the code.
+4. **Scope and code.** A maintainer checks that the change follows the agreed plan, if it needed one,
+   and that each changed file serves the stated purpose, then reviews the code.
 5. **Benchmarks.** For a change to the C++ kernel or to sampling, the maintainers run a fixed benchmark suite,
    kept outside this repository, on a fixed machine, comparing `main` with the pull request.
    Every case that becomes 5% or more slower, or needs 5% or more additional peak memory,
