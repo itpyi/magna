@@ -8,6 +8,7 @@ Notable changes to magna, newest first.
 ### Added
 
 - The CUDA sampler supports Python decoder calls with the `affine_support` history sampler.
+- An experimental `magna.cuda_multi.MultiGpuCudaSampler` divides a sampling run among several GPUs on one host.
 - An experimental CUDA sampler, `magna.cuda_sampler.CudaSampler`, runs physical and importance sampling
   of supported tasks on an NVIDIA GPU. Install it with `pip install ".[cuda12]"`.
 - The README explains how to cite magna.
@@ -17,6 +18,7 @@ Notable changes to magna, newest first.
 - Python decoder functions are called with less overhead, so sampling with a fast decoder is faster.
 - Each draw repeats less of the work fixed by the circuit, so sampling is faster,
   most of all when decoders read many measurement records.
+- Sampling is faster when many draws are rejected.
 
 ### Fixed
 

@@ -120,7 +120,7 @@ class ReferenceNetworkTests(unittest.TestCase):
         self.assertLessEqual(state['persistent_networks'], 3)
         self.assertEqual(state['reference_network_resource_constructions'], 0)
         self.assertEqual(state['reference_network_coordinate_constructions'], 0)
-        self.assertEqual(state['reference_network_evaluations']['fidelity'], 128)
+        self.assertEqual(state['reference_network_evaluations']['fidelity'], 128-rejected)
         self.assertEqual(state['reference_network_evaluations']['acceptance'], 128)
         exact = enumerate_errors(physical, task={k: v for k, v in task.items() if k != 'sample_records'},
                                  ideal_state=target, max_weight=0)

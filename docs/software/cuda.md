@@ -113,3 +113,52 @@ The CUDA sampler uses its own random number generator, Philox4x32-10, indexed by
 The same seed and offset give the same faults whatever the batch size;
 estimates can still differ in the last digits, because batches are summed in a different order.
 CPU and GPU runs with the same seed draw different faults.
+
+## Multiple GPUs on one host
+
+`MultiGpuCudaSampler` divides a run among several GPUs on one machine.
+It supports the same tasks as `CudaSampler`. Use it when a run takes too long on one GPU.
+
+Write the code in a script, under `if __name__ == "__main__":`.
+Each GPU gets its own Python process, and that process imports your script when it starts.
+
+```python
+from magna import compile_circuit
+from magna.cuda_multi import MultiGpuCudaSampler
+
+if __name__ == "__main__":
+    compiled = compile_circuit(
+        "examples/bh2-T/physical.magna", task="examples/bh2-T/task.json",
+        sampling={"method": "importance", "proposal_scale": "1000/7"},
+    )
+    with MultiGpuCudaSampler(compiled, devices=(0, 1, 2, 3)) as sampler:
+        result = sampler.run(16_777_216, seed=7)
+        print(result["estimates"], result["standard_errors"])
+```
+
+`devices` lists the GPUs to use, numbered as CUDA sees them:
+with `CUDA_VISIBLE_DEVICES=2,3`, use `devices=(0, 1)`.
+
+`run` takes the same arguments as `CudaSampler.run`.
+`shots` is the total number of draws, divided evenly among the GPUs, and `batch_size` applies to each GPU.
+The first run takes longer, because each process compiles the task and the GPU code.
+Later runs reuse the processes. Leaving the `with` block, or calling `close()`, stops them.
+
+The same seed and offset give the same faults on any number of GPUs.
+As with batches, the estimates can still differ in the last digits.
+
+The result has the fields of `CudaSampler.run`, plus these:
+
+| Field | Meaning |
+|---|---|
+| `devices` | The GPUs given to the sampler |
+| `shards` | One entry for each GPU used, with its `device`, `offset`, `shots` and `sampling_seconds` |
+| `timings.total_seconds` | Time for the whole run |
+| `timings.startup_seconds` | Time spent starting the processes |
+
+`timings.sampling_seconds` covers all GPUs together. The GPUs run at the same time,
+so the times in `shards` do not add up to it.
+
+To limit how long a run can take, pass `timeout` in seconds:
+`MultiGpuCudaSampler(compiled, devices=(0, 1), timeout=600)`. The limit includes the first run's compilation.
+If a run times out or a GPU fails, `run` raises an error and the sampler closes; create a new one to try again.
