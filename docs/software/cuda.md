@@ -16,6 +16,15 @@ first-call compilation excluded):
 | `color3` | physical | 0.99 | 1.47 | 671x |
 | `rp2-d5` | physical | 1.46 | 6.25 | 233x |
 
+Two example tasks with decoder calls, measured the same way with the default batch size of 4096 and physical sampling:
+
+| Task | Draws | `run` (s) | CUDA sampler (s) | Speed-up |
+|---|---:|---:|---:|---:|
+| `dk` | 262,144 | 1.61 | 0.266 | 6.0x |
+| `tqd5` | 4,096 | 37.4 | 40.7 | 0.92x |
+
+On `tqd5` the CUDA sampler is slower than `run`.
+
 ## Install
 
 You need an NVIDIA GPU with a driver that supports CUDA 12. Install magna with the `cuda12` extra,
