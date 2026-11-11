@@ -67,6 +67,64 @@ struct ScientificSummary {
     std::vector<RangedValue> estimates, standard_errors;
     size_t count = 0;
 };
+// Centered covariance factors preserve residual errors before final conversion.
+struct ScientificMoments {
+    size_t count = 0;
+    std::array<double, 2> mean{};
+    std::array<double, 3> root{};
+    std::array<int64_t, 2> scales{};
+    static double rescale(double value, int64_t shift) {
+        return value == 0 || shift < std::numeric_limits<int>::min() ? 0 : std::ldexp(value, int(shift));
+    }
+    void add_row(double x, double y) {
+        if(x == 0) { root[2] = std::hypot(root[2], y); return; }
+        double radius = std::hypot(root[0], x), c = root[0] / radius, s = x / radius;
+        double xy = s * root[1], yy = s * y;
+        double residual = std::fma(c, y, -xy) - std::fma(s, root[1], -xy);
+        root[1] = std::fma(c, root[1], yy) + std::fma(s, y, -yy);
+        root[0] = radius;
+        root[2] = std::hypot(root[2], residual);
+    }
+    void merge(ScientificMoments other) {
+        if(!other.count) return;
+        if(!count) { *this = other; return; }
+        for(size_t j = 0; j < 2; j++) {
+            auto scale = mean[j] == 0 ? other.scales[j] : other.mean[j] == 0 ? scales[j]
+                                                                 : std::max(scales[j], other.scales[j]);
+            auto left = scales[j] - scale, right = other.scales[j] - scale;
+            mean[j] = rescale(mean[j], left); other.mean[j] = rescale(other.mean[j], right);
+            for(size_t k = j ? 1 : 0; k <= (j ? 2 : 0); k++) {
+                root[k] = rescale(root[k], left); other.root[k] = rescale(other.root[k], right);
+            }
+            scales[j] = scale;
+        }
+        auto total = count + other.count;
+        double da = other.mean[0] - mean[0], de = other.mean[1] - mean[1];
+        double weight = std::sqrt(double(count) * double(other.count) / double(total));
+        add_row(other.root[0], other.root[1]); add_row(0, other.root[2]); add_row(weight * da, weight * de);
+        mean[0] += da * (double(other.count) / double(total));
+        mean[1] += de * (double(other.count) / double(total));
+        count = total;
+    }
+    ScientificSummary summary(bool has_error) const {
+        ScientificSummary result;
+        result.count = count;
+        auto append = [](std::vector<RangedValue>& out, bool exists, double value, int64_t scale) {
+            out.push_back(ranged_value(exists ? std::optional<ScientificValue>{{value, scale}} : std::nullopt));
+        };
+        bool ratio_exists = count && has_error && mean[0] != 0;
+        double ratio = ratio_exists ? mean[1] / mean[0] : 0;
+        append(result.estimates, count, mean[0], scales[0]);
+        append(result.estimates, count && has_error, mean[1], scales[1]);
+        append(result.estimates, ratio_exists, ratio, scales[1] - scales[0]);
+        double divisor = count > 1 ? std::sqrt(double(count) * double(count - 1)) : 1;
+        append(result.standard_errors, count > 1, root[0] / divisor, scales[0]);
+        append(result.standard_errors, count > 1 && has_error, std::hypot(root[1], root[2]) / divisor, scales[1]);
+        double residual = ratio_exists ? std::hypot(std::fma(-ratio, root[0], root[1]), root[2]) / divisor / std::abs(mean[0]) : 0;
+        append(result.standard_errors, count > 1 && ratio_exists, residual, scales[1] - scales[0]);
+        return result;
+    }
+};
 // Streaming range-safe statistics of completed contributions. A column whose
 // largest nonzero binary exponent lies outside [-500, 500] is accumulated at that
 // exponent; when the largest exponent moves, the running sums are rescaled by the

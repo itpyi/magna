@@ -3,7 +3,10 @@
 #include "bindings/module.hpp"
 #include "oracles.hpp"
 namespace {
-PyMethodDef methods[] = {{"file_execution_faults", file_execution_faults, METH_VARARGS,
+PyMethodDef methods[] = {
+        {"cuda_history_rng_words", cuda_history_rng_words, METH_VARARGS, "Native addressed RNG reference."},
+        {"cuda_oversized_weight_plan", cuda_oversized_weight_plan, METH_NOARGS, "Construct an oversized entry plan."},
+        {"file_execution_faults", file_execution_faults, METH_VARARGS,
                                  "Export native original or feedback assignments."},
         {"summarize_scientific_draws", summarize_scientific_draws, METH_VARARGS,
                 "Range-safe native contribution statistics."},
