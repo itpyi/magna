@@ -20,10 +20,10 @@ Two example tasks with decoder calls, measured the same way with the default bat
 
 | Task | Draws | `run` (s) | CUDA sampler (s) | Speed-up |
 |---|---:|---:|---:|---:|
-| `dk` | 262,144 | 1.61 | 0.266 | 6.0x |
-| `tqd5` | 4,096 | 37.4 | 40.7 | 0.92x |
+| `dk` | 262,144 | 1.60 | 0.260 | 6.1x |
+| `tqd5` | 4,096 | 38.6 | 37.0 | 1.04x |
 
-On `tqd5` the CUDA sampler is slower than `run`.
+On `tqd5` the CUDA sampler is about as fast as `run`.
 
 ## Install
 
