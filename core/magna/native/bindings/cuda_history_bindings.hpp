@@ -67,7 +67,6 @@ inline PyObject* cuda_history_plan_output(const CudaHistoryPlan& p, const CudaEx
                 "input_count", Py_ssize_t(site.inputs.size()), "output_count", Py_ssize_t(site.outputs.size()),
                 "pending_count", Py_ssize_t(site.pending.size()), "event_count", Py_ssize_t(site.events.size())));
         phase_set(value.p, "inputs", cuda_history_affines(site.inputs, words));
-        phase_set(value.p, "input_for_pending", cuda_output_bytes(site.input_for_pending));
         phase_set(value.p, "keep", cuda_history_rows(site.keep, open_words));
         phase_set(value.p, "offsets", cuda_history_affines(site.offsets, words));
         phase_set(value.p, "events", cuda_history_rows(site.events, open_words));
@@ -91,7 +90,6 @@ PyObject* make_cuda_history(PyObject*, PyObject* cap) {
         owner->experiment = bridge->plan;
         native_work([&]() { owner->plan = build_cuda_history(*owner->run, *owner->experiment); return 0; });
         Object metadata(cuda_history_plan_output(owner->plan, *owner->experiment));
-        phase_set(metadata.p, "proposal", PyBool_FromLong(owner->run->proposal));
         Object handle(PyCapsule_New(owner.get(), "magna-cuda-history-v1", cuda_history_destructor));
         owner.release();
         return PyTuple_Pack(2, handle.p, metadata.p);

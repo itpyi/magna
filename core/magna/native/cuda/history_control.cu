@@ -15,7 +15,7 @@ __device__ void assign(u64* frame, int pauli_words, int bit, int value) {
 }
 extern "C" __global__ void initialize_history(const u64* noise, const u64* sector_base,
         const u64* sector_columns, u64* frames, i64* ranks, u64 shots, u64 seed, u64 offset,
-        int pauli_words, int stride, int sector_bits, int sector_rank, int proposal) {
+        int pauli_words, int stride, int sector_bits, int sector_rank) {
     u64 shot = (u64)blockIdx.x * blockDim.x + threadIdx.x;
     if (shot >= shots) return;
     u64* frame = frames + shot * stride;
@@ -27,7 +27,7 @@ extern "C" __global__ void initialize_history(const u64* noise, const u64* secto
     for (int j = 0; j < sector_rank; ++j)
         if (rng.next() & 1) for (int w = 0; w < words; ++w)
             frame[pauli_words + w] ^= sector_columns[(u64)j * words + w];
-    if (proposal) ranks[shot] = sector_rank;
+    ranks[shot] = sector_rank;
 }
 extern "C" __global__ void history_inputs(const u64* frames, const u32* offsets,
         const u32* words, const u64* masks, const unsigned char* constants,
@@ -49,21 +49,11 @@ extern "C" __global__ void history_closed(u64* frames, const u32* offsets,
         assign(frame, pauli_words, sector_bits + observation_first + j,
                affine(frame, offsets, words, masks, constants, j));
 }
-extern "C" __global__ void history_feedback(u64* frames, const u32* offsets,
-        const u32* words, const u64* masks, const unsigned char* constants,
-        const u32* pending_inputs, const u32* outputs, const u64* columns,
-        const unsigned char* inputs, const unsigned char* decisions, u64 shots,
-        int stride, int pauli_words, int sector_bits, int observation_first,
-        int pending_count, int input_count, int output_count) {
+extern "C" __global__ void history_feedback(u64* frames, const u32* outputs, const u64* columns,
+        const unsigned char* decisions, u64 shots, int stride, int pauli_words, int output_count) {
     u64 shot = (u64)blockIdx.x * blockDim.x + threadIdx.x;
     if (shot >= shots) return;
     u64* frame = frames + shot * stride;
-    for (int j = 0; j < pending_count; ++j) {
-        int bit = sector_bits + observation_first + j, i = pending_inputs[j];
-        int old = (frame[pauli_words + bit / 64] >> (bit % 64)) & 1;
-        int known = affine(frame, offsets, words, masks, constants, i) ^ old;
-        assign(frame, pauli_words, bit, inputs[shot * input_count + i] ^ known);
-    }
     for (int j = 0; j < output_count; ++j) {
         int value = decisions[shot * output_count + j];
         assign(frame, pauli_words, outputs[j], value);

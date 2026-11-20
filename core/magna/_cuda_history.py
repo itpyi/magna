@@ -11,7 +11,6 @@ class _CudaHistory:
     def __init__(self, experiment):
         self.experiment = experiment
         self.handle, self.metadata = _native.make_cuda_history(experiment.handle)
-        self.proposal = self.metadata['proposal']
         self.stride = self.metadata['frame_words']
         self.pauli_words = 2*experiment.words
         self.sites = self.metadata['sites']
@@ -53,17 +52,17 @@ class _CudaHistory:
         self.device_sites = []
         for site, closed in zip(self.sites, self.closed):
             arrays = {name: self._array(site[name], dtype) for name, dtype in
-                (('outputs', '<u4'), ('input_for_pending', '<u4'), ('columns', '<u8'))}
+                (('outputs', '<u4'), ('columns', '<u8'))}
             arrays.update(inputs=self._affine(site['inputs']), offsets=self._affine(site['offsets']),
                 closed=cp.asarray(closed, dtype=cp.uint8))
-            if self.proposal and not np.all(closed):
+            if not np.all(closed):
                 for name in ('keep', 'events'):
                     arrays[name] = self._array(site[name], '<u8')
                 for name in ('offsets', 'outcomes'):
                     arrays[name+'_rows'] = self._array(site[name]['rows'], '<u8')
                     arrays[name+'_constants'] = self._array(site[name]['constants'], 'u1')
             self.device_sites.append(arrays)
-        if self.proposal and any(not np.all(closed) for closed in self.closed):
+        if any(not np.all(closed) for closed in self.closed):
             raw = self.metadata['mother']
             host = _query_arrays(raw)
             if raw['mode'] not in (1, 3, 4):
@@ -152,7 +151,7 @@ class _CudaHistory:
             (original, self.sector_base, self.sector_columns, frames, ranks,
              np.uint64(shots), np.uint64(seed), np.uint64(offset),
              *map(np.int32, (self.pauli_words, self.stride, self.metadata['sector_bits'],
-                            self.metadata['sector_rank'], self.proposal))))
+                            self.metadata['sector_rank']))))
         previous_inputs, previous_outputs = [], []
         for index, (site, arrays, binding) in enumerate(zip(self.sites, self.device_sites, self.bindings)):
             pending = site['pending_count']
@@ -169,10 +168,8 @@ class _CudaHistory:
             for row, bits in enumerate(host_inputs.tolist()):
                 outputs[row] = controller.invoke(bits, site['output_count'], source=inst.source)
             self.control.get_function('history_feedback')(((shots+127)//128,), (128,),
-                (frames, *arrays['inputs'], arrays['input_for_pending'], arrays['outputs'], arrays['columns'],
-                 cp.asarray(host_inputs), cp.asarray(outputs), np.uint64(shots),
-                 *map(np.int32, (self.stride, self.pauli_words, self.metadata['sector_bits'],
-                                site['observation_first'], pending, site['input_count'], site['output_count']))))
+                (frames, arrays['outputs'], arrays['columns'], cp.asarray(outputs), np.uint64(shots),
+                 *map(np.int32, (self.stride, self.pauli_words, site['output_count']))))
             previous_inputs.append(host_inputs)
             previous_outputs.append(outputs)
         exact = self.terminal.evaluate(frames)
