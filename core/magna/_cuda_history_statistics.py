@@ -69,7 +69,7 @@ class _HistoryStatistics:
         flag = int(flags.get()[0])
         if flag:
             raise ValueError(f'GPU probability summary rejected values (flags={flag}: '
-                             '1=nonreal, 16=query contract)')
+                             '1=nonreal, 4=not a probability, 16=query contract)')
         host = output.get()
         return (_ScaledMoments(int(host[5]), host[:2], host[2:5], host[6:8].astype(np.int64)),
                 continuation.get())

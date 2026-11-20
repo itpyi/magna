@@ -84,9 +84,7 @@ class HistoryStatisticsGpuTests(unittest.TestCase):
 
     def reduce(self, rows, ranks=None, status=None):
         cp = self.cp
-        c, p = arrays([[row[0], *row] for row in rows])
-        if status is not None:
-            status = np.column_stack((np.zeros(len(rows), dtype=np.int32), status))
+        c, p = arrays(rows)
         ranks = [0]*len(c) if ranks is None else ranks
         exact = SimpleNamespace(coefficients=cp.asarray(c), powers=cp.asarray(p),
             status=cp.zeros(p.shape, dtype=cp.int32) if status is None else cp.asarray(status))
@@ -115,7 +113,6 @@ class HistoryStatisticsGpuTests(unittest.TestCase):
         from magna._cuda_history import _CudaHistory
         history = _CudaHistory.__new__(_CudaHistory)
         history._cp = self.cp
-        history.proposal = True
         history.normalization = (1.25, -1)
         for rank, expected in ((0, 2.**-1074), (1074, 1.)):
             ranks, weights = history._statistics_inputs(self.cp.asarray([rank], dtype=self.cp.int64),
@@ -147,14 +144,15 @@ class HistoryStatisticsGpuTests(unittest.TestCase):
         self.assertEqual(completed.count, 3)
         self.assert_summary(completed, _scientific_moments(reference))
 
-    def test_history_mass_checks_the_acceptance_bound(self):
+    def test_values_that_are_not_probabilities_raise_instead_of_replaying(self):
+        # Target success above acceptance, a negative value, and a nonreal value.
         cp = self.cp
-        c, p = arrays([[scalar(1, -1), scalar()]])
-        exact = SimpleNamespace(coefficients=cp.asarray(c), powers=cp.asarray(p),
-                                status=cp.zeros(p.shape, dtype=cp.int32))
-        moments, continuation = _HistoryStatistics(cp).reduce(exact, proposal_rank=cp.zeros(1, dtype=cp.int64))
-        self.assertEqual(moments.count, 0)
-        np.testing.assert_array_equal(continuation, [1])
+        for row in ([scalar(1, -1), scalar()], [scalar(-1), scalar(0)], [([1, 0, 1, 0], 0), scalar(0)]):
+            c, p = arrays([[scalar(1, -1), scalar(1, -2)]]*129 + [row])
+            exact = SimpleNamespace(coefficients=cp.asarray(c), powers=cp.asarray(p),
+                                    status=cp.zeros(p.shape, dtype=cp.int32))
+            with self.subTest(row=row), self.assertRaisesRegex(ValueError, 'flags=4'):
+                _HistoryStatistics(cp).reduce(exact, proposal_rank=cp.zeros(len(c), dtype=cp.int64))
 
     def test_only_guard_status_replays(self):
         status = np.zeros((130, 1), dtype=np.int32)

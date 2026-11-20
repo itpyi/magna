@@ -13,9 +13,11 @@ __device__ double norm_delta(i64 a, i64 b, int& sign) {
     u64 upper=hi-yh-(lo<yl);
     return ldexp((double)upper,64)+(double)(lo-yl);
 }
-__device__ bool real_value(const i64* c, i64 power, double& mantissa, i64& exponent) {
-    for(int j=0;j<4;++j) if(absolute(c[j])>((1ULL<<62)-1)) return false;
-    if(c[2] || c[1]!=-c[3]) return false;
+// Codes: 0 representable, 1 beyond the exact range (replayed on the CPU),
+// 2 not a probability (exact arithmetic, so the GPU computed it wrongly).
+__device__ int real_value(const i64* c, i64 power, double& mantissa, i64& exponent) {
+    for(int j=0;j<4;++j) if(absolute(c[j])>((1ULL<<62)-1)) return 1;
+    if(c[2] || c[1]!=-c[3]) return 2;
     i64 a=c[0],b=c[1];
     double value;
     if((a<0 && b>0)||(a>0 && b<0)) {
@@ -23,10 +25,10 @@ __device__ bool real_value(const i64* c, i64 power, double& mantissa, i64& expon
         double numerator=norm_delta(a,b,sign);
         value=(a>0?sign:-sign)*numerator/((double)absolute(a)+(double)absolute(b)*1.4142135623730950488);
     } else value=(double)a+(double)b*1.4142135623730950488;
-    if(value<0.) return false;
+    if(value<0.) return 2;
     int shift=0;
     mantissa=frexp(value,&shift); exponent=mantissa ? power+shift : 0;
-    return true;
+    return 0;
 }
 __device__ bool difference(const i64* a, i64 pa, const i64* b, i64 pb, i64* out, i64& power) {
     if(empty_scalar(a)) pa=pb;
@@ -41,18 +43,19 @@ __device__ bool difference(const i64* a, i64 pa, const i64* b, i64 pb, i64* out,
     }
     return true;
 }
-__device__ bool contribution(const i64* c,const int* p,int queries,i64 rank,
-                             double weight,double* value,i64* exponent) {
-    if(queries<2 || queries>3 || rank<-(1LL<<50) || rank>(1LL<<50) ||
-       !isfinite(weight) || weight<0.) return false;
-    double pm,am,em=0.,tm,unused; i64 pe,ae,ee=0,te,up;
-    if(!real_value(c,p[0],pm,pe) || !real_value(c+4,p[1],am,ae)) return false;
-    i64 delta[4],dp;
-    if(!difference(c,p[0],c+4,p[1],delta,dp) || !real_value(delta,dp,unused,up)) return false;
-    if(queries==3) {
-        if(!real_value(c+8,p[2],tm,te) ||
-           !difference(c+4,p[1],c+8,p[2],delta,dp) ||
-           !real_value(delta,dp,em,ee)) return false;
+// Queries are acceptance and, with a target, target success; codes as for real_value.
+__device__ int contribution(const i64* c,const int* p,int queries,i64 rank,
+                            double weight,double* value,i64* exponent) {
+    if(queries<1 || queries>2 || rank<-(1LL<<50) || rank>(1LL<<50) ||
+       !isfinite(weight) || weight<0.) return 1;
+    double am,em=0.,tm; i64 ae,ee=0,te;
+    int code=real_value(c,p[0],am,ae);
+    if(code) return code;
+    if(queries==2) {
+        i64 delta[4],dp;
+        if((code=real_value(c+4,p[1],tm,te))) return code;
+        if(!difference(c,p[0],c+4,p[1],delta,dp)) return 1;
+        if((code=real_value(delta,dp,em,ee))) return code;
     }
     int we=0;
     double wm=frexp(weight,&we);
@@ -63,7 +66,7 @@ __device__ bool contribution(const i64* c,const int* p,int queries,i64 rank,
         value[j]=frexp(v,&shift);
         exponent[j]=v ? powers[j]+we+shift+rank : 0;
     }
-    return true;
+    return 0;
 }
 __device__ void add_row(double* s,double x,double y) {
     if(x==0.) {s[4]=hypot(s[4],y);return;}
@@ -121,8 +124,12 @@ extern "C" __global__ void history_moments(const i64* coefficients,const int* po
             if(code>1)atomicOr(flags,code==2?16U:1U);
         }
         i64 exponent[2]={0,0};
-        if(ok)ok=contribution(coefficients+shot*queries*4,powers+shot*queries,queries,
-                               ranks[shot],weighted?weights[shot]:1.,state,exponent);
+        if(ok) {
+            int code=contribution(coefficients+shot*queries*4,powers+shot*queries,queries,
+                                  ranks[shot],weighted?weights[shot]:1.,state,exponent);
+            if(code==2)atomicOr(flags,4U);
+            ok=!code;
+        }
         continuation[shot]=ok?0:1;
         if(ok){state[5]=1.;state[6]=(double)exponent[0];state[7]=(double)exponent[1];}
         else for(int j=0;j<8;++j)state[j]=0.;
