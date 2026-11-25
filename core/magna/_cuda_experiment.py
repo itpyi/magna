@@ -9,9 +9,8 @@ from . import _native
 class CudaExperiment:
     """Packed Pauli-frame columns of every noise action of one compiled task.
 
-    Creation rejects tasks the CUDA sampler does not support: sampled histories,
-    decoder calls, guarded noise, observables, and importance proposals without
-    one complete native count table.
+    Creation checks the task's noise channels and output features. Decoder
+    histories use an additional plan owned by the CUDA sampler.
     """
 
     def __init__(self, compiled):

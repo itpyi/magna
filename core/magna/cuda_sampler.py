@@ -1,8 +1,8 @@
 """Physical and importance sampling of supported tasks on an NVIDIA GPU.
 
 Compilation stays in magna. Philox noise, Pauli-frame accumulation, exact
-conditional probabilities and batch statistics run on the device; each chunk
-copies six numbers back to the host. Each chunk's statistics are a mean and
+conditional probabilities and batch statistics run on the device. Decoder tasks
+exchange reported bits and decisions with the host at each call. Each chunk's statistics are a mean and
 a centered covariance factor, merged on the host without subtracting raw
 moments, so a small variance is not lost to cancellation.
 
@@ -139,6 +139,14 @@ class CudaSampler:
         self._noise = FusedCudaNoise(self._experiment)
         if np.any(self._noise.likelihood_values > _MAX_LIKELIHOOD):
             raise ValueError('importance likelihood table exceeds the 2^480 statistics bound')
+        self._has_error = compiled.ideal_state is not None
+        self._history = None
+        self._default_batch_size = 65536
+        if compiled._compilation['sampled_history']:
+            from ._cuda_history import _CudaHistory
+            self._history = _CudaHistory(self._experiment)
+            self._default_batch_size = 4096
+            return
         self._queries = GpuQueries(self._experiment)
         coefficients, power = self._experiment.metadata['target_normalization']
         if tuple(coefficients) != (1, 0, 0, 0):
@@ -146,7 +154,6 @@ class CudaSampler:
         self._norm_power = int(power)
         if abs(self._norm_power) > 1_000_000:
             raise ValueError('target normalization exponent exceeds summary bound')
-        self._has_error = compiled.ideal_state is not None
         self._statistics_module = None
         self._unit_weights = None
 
@@ -173,9 +180,15 @@ class CudaSampler:
 
     def _merge_statistics(self, chunks):
         """Merge chunk or worker statistics in draw order."""
+        if self._history is not None:
+            from ._cuda_history_statistics import _merge_scaled
+            return _merge_scaled(chunks)
         return _merge_moments(chunks)
 
     def _summarize_statistics(self, statistics):
+        if self._history is not None:
+            from ._cuda_history_statistics import _summarize_scaled
+            return _summarize_scaled(statistics, self._has_error)
         return _summarize_moments(statistics, self._has_error)
 
     def _gpu_moments(self, exact, weights=None):
@@ -210,6 +223,9 @@ class CudaSampler:
         """Statistics of each chunk, produced as it finishes so memory stays constant."""
         for first in range(0, shots, batch_size):
             size = min(batch_size, shots-first)
+            if self._history is not None:
+                yield self._history.chunk(self._noise, size, seed, offset+first)
+                continue
             weights = None
             if self._noise.has_importance_weights:
                 frames, weights = self._noise.sample_weighted(size, seed, offset=offset+first)
@@ -217,13 +233,15 @@ class CudaSampler:
                 frames = self._noise.sample(size, seed, offset=offset+first)
             yield self._gpu_moments(self._queries.evaluate(frames), weights)
 
-    def run(self, shots, *, seed=0, offset=0, batch_size=65536):
+    def run(self, shots, *, seed=0, offset=0, batch_size=None):
         """Attempt ``shots`` draws in chunks of at most ``batch_size``.
 
         Draw ``j`` uses Philox random numbers addressed by ``(seed, offset + j)``,
         so the chunk size does not change which faults are drawn.
         """
         self._experiment.validate()
+        if batch_size is None:
+            batch_size = self._default_batch_size
         shots, seed, offset, batch_size = _run_arguments(
             shots, seed, offset, batch_size, self._experiment.metadata['max_shots'])
         start = perf_counter()

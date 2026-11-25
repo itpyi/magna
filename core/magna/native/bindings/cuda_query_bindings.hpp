@@ -39,6 +39,15 @@ inline PyObject* cuda_query_plan_output(const CudaQueryPlan& p) {
     phase_set(out.p, "step_offsets", cuda_output_bytes(p.step_offsets));
     phase_set(out.p, "step_indices", cuda_output_bytes(p.step_indices));
     phase_set(out.p, "step_tags", cuda_output_bytes(p.step_tags));
+    if(p.mode == 5) {
+        Object components(PyTuple_New(p.components.size())), weights(PyTuple_New(p.weights.size()));
+        for(size_t j = 0; j < p.components.size(); j++) {
+            PyTuple_SET_ITEM(components.p, j, cuda_query_plan_output(p.components[j]));
+            PyTuple_SET_ITEM(weights.p, j, output_scalar(p.weights[j]));
+        }
+        phase_set(out.p, "components", Py_NewRef(components.p));
+        phase_set(out.p, "weights", Py_NewRef(weights.p));
+    }
     return Py_NewRef(out.p);
 }
 
