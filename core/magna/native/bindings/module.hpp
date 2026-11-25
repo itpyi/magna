@@ -37,6 +37,7 @@
 #include "../runtime/file_enumeration.hpp"
 #include "../runtime/file_statistics.hpp"
 #include "../runtime/file_batch.hpp"
+#include "../runtime/file_parallel.hpp"
 #include "../runtime/history_efficiency.hpp"
 #include "../runtime/marginal.hpp"
 #include "../runtime/noise.hpp"

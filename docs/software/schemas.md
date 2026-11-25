@@ -48,7 +48,7 @@ The enumeration result and the `magna validate` report carry the same version.
 | `schema_version`, `software_version` | Identifiers |
 | `status` | `complete` or `failed` |
 | `requested`, `completed`, `failed`, `not_attempted` | Shot counts |
-| `seed`, `route`, `method`, `history_sampler` | Execution identity; `route` is `linear` or `nonlinear` |
+| `seed`, `workers`, `route`, `method`, `history_sampler` | Execution identity; `workers` is the requested worker count (default 1); `route` is `linear` or `nonlinear` |
 | `estimates` | `acceptance`, `error`, `conditional_error`, `moments` |
 | `standard_errors` | Standard errors of the same fields; `null` with fewer than two draws |
 | `estimates_scientific`, `standard_errors_scientific` | The same values as `{"mantissa", "exponent2"}` objects |

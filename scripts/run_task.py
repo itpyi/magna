@@ -10,7 +10,7 @@ def load(directory):
     from magna import load_controllers
     directory = Path(directory).resolve()
     config = json.loads((directory / 'run.json').read_text())
-    allowed = {'circuit', 'task', 'controllers', 'shots', 'seed', 'options', 'sampling'}
+    allowed = {'circuit', 'task', 'controllers', 'shots', 'seed', 'options', 'sampling', 'workers'}
     if set(config) - allowed:
         raise ValueError(f'Unknown run settings: {sorted(set(config) - allowed)}')
     def local(name):
@@ -30,6 +30,7 @@ def main():
     parser.add_argument('directory', type=Path)
     parser.add_argument('--shots', type=int)
     parser.add_argument('--seed', type=int)
+    parser.add_argument('--workers', type=int, help='native sampling threads (default 1)')
     parser.add_argument('--history-sampler', choices=('affine_support', 'exact_marginal'))
     parser.add_argument('--progress-every', type=int)
     parser.add_argument('--output', type=Path)
@@ -40,6 +41,7 @@ def main():
         settings['options']['history_sampler'] = args.history_sampler
     result = run(circuit, shots=args.shots if args.shots is not None else config.get('shots', 1024),
                  seed=args.seed if args.seed is not None else config.get('seed', 0),
+                 workers=args.workers if args.workers is not None else config.get('workers', 1),
                  progress_every=args.progress_every, **settings)
     text = json.dumps(result, indent=2, allow_nan=False) + '\n'
     if args.output:
